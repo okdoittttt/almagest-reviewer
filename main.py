@@ -12,7 +12,12 @@ app = FastAPI()
 github_client = GitHubClient()
 pr_collector = PRDataCollector(github_client)
 
-@app.post("/github/webhook")
+@app.get("/")
+async def health_check():
+    """Health check endpoint"""
+    return {"status": "ok", "service": "almagest-reviewer"}
+
+@app.post("/webhook")
 async def github_webhook(request: Request):
     # Webhook 서명 검증
     verified_body = await verify_webhook_signature(request)
@@ -67,8 +72,5 @@ async def github_webhook(request: Request):
             f"✅ PR #{pr_number} 리뷰 완료: {review_decision} - "
             f"{pr_data.changed_files_count} files, {len(review_result.get('file_reviews', []))} reviews"
         )
-    
-    return JSONResponse({"status": "success"})
 
-    def hello_world():
-        print("Hello World")
+    return JSONResponse({"status": "success"})
