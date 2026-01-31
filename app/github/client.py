@@ -204,3 +204,83 @@ class GitHubClient:
 
             logger.debug(f"{repo_owner}/{repo_name}의 {file_path} 파일 내용을 조회했습니다")
             return response.text
+
+    async def get_pr_commits(
+        self,
+        installation_id: str,
+        repo_owner: str,
+        repo_name: str,
+        pull_number: int
+    ) -> list[dict[str, Any]]:
+        """
+        Pull Request의 커밋 목록을 조회한다.
+
+        Args:
+            installation_id: GitHub App의 Installation ID
+            repo_owner: 저장소 소유자
+            repo_name: 저장소 이름
+            pull_number: Pull Request 번호
+
+        Returns:
+            커밋 목록 (SHA, 메시지, 작성자 등의 정보 포함)
+
+        Raises:
+            httpx.HTTPStatusError: GitHub API 호출 결과 에러가 발생한 경우
+        """
+        token = await self.get_installation_token(installation_id)
+
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{self.BASE_URL}/repos/{repo_owner}/{repo_name}/pulls/{pull_number}/commits",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Accept": "application/vnd.github+json",
+                    "X-GitHub-Api-Version": "2022-11-28"
+                },
+                timeout=10.0
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            logger.info(f"PR #{pull_number}에서 {len(data)}개의 커밋을 조회했습니다")
+            return data
+
+    async def get_pr_details(
+        self,
+        installation_id: str,
+        repo_owner: str,
+        repo_name: str,
+        pull_number: int
+    ) -> dict[str, Any]:
+        """
+        Pull Request의 상세 정보를 조회한다.
+
+        Args:
+            installation_id: GitHub App의 Installation ID
+            repo_owner: 저장소 소유자
+            repo_name: 저장소 이름
+            pull_number: Pull Request 번호
+
+        Returns:
+            PR 상세 정보 (제목, 본문, 브랜치, 작성자 등)
+
+        Raises:
+            httpx.HTTPStatusError: GitHub API 호출 결과 에러가 발생한 경우
+        """
+        token = await self.get_installation_token(installation_id)
+
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{self.BASE_URL}/repos/{repo_owner}/{repo_name}/pulls/{pull_number}",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Accept": "application/vnd.github+json",
+                    "X-GitHub-Api-Version": "2022-11-28"
+                },
+                timeout=10.0
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            logger.info(f"PR #{pull_number}의 상세 정보를 조회했습니다")
+            return data
