@@ -6,6 +6,7 @@ from loguru import logger
 
 from app.github import GitHubClient, PRDataCollector
 from app.webhook import verify_webhook_signature
+from app.reviewer import run_review
 
 app = FastAPI()
 github_client = GitHubClient()
@@ -39,39 +40,32 @@ async def github_webhook(request: Request):
             include_commits=True  # 커밋 목록 포함
         )
 
-        # 수집된 데이터로 코멘트 작성
-        comment = f"""🤖 코드 리뷰를 시작합니다!
+        # LanGraph 기반 AI 코드 리뷰 실행
+        logger.info(f"🤖 AI 코드 리뷰 시작: PR #{pr_number}")
 
-**PR 정보**
-- 제목: {pr_data.title}
-- 작성자: @{pr_data.author.login}
-- 브랜치: `{pr_data.head_branch}` → `{pr_data.base_branch}`
+        review_result = await run_review(
+            pr_data=pr_data,
+            installation_id=installation_id,
+            repo_owner=repo_owner,
+            repo_name=repo_name
+        )
 
-**변경 사항**
-- 파일: {pr_data.changed_files_count}개
-- 커밋: {pr_data.commits_count}개
-- 추가: +{pr_data.total_additions} / 삭제: -{pr_data.total_deletions}
+        # 최종 리뷰 코멘트 추출
+        final_review = review_result.get("final_review", "리뷰 생성 실패")
+        review_decision = review_result.get("review_decision", "COMMENT")
 
-**변경된 파일 목록**
-"""
-        for file in pr_data.files[:10]:  # 최대 10개만 표시
-            status_emoji = "✨" if file.is_new_file else "📝" if file.status == "modified" else "🗑️"
-            comment += f"\n{status_emoji} `{file.filename}` (+{file.additions}/-{file.deletions})"
-
-        if pr_data.changed_files_count > 10:
-            comment += f"\n\n... 외 {pr_data.changed_files_count - 10}개 파일"
-
+        # GitHub에 리뷰 코멘트 게시
         await github_client.create_pr_comment(
             installation_id=installation_id,
             repo_owner=repo_owner,
             repo_name=repo_name,
             pull_number=pr_number,
-            comment_body=comment
+            comment_body=final_review
         )
 
         logger.info(
-            f"Processed PR #{pr_number} from {repo_owner}/{repo_name}: "
-            f"{pr_data.changed_files_count} files, {pr_data.commits_count} commits"
+            f"✅ PR #{pr_number} 리뷰 완료: {review_decision} - "
+            f"{pr_data.changed_files_count} files, {len(review_result.get('file_reviews', []))} reviews"
         )
     
     return JSONResponse({"status": "success"})

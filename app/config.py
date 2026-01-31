@@ -14,6 +14,11 @@ class Settings(BaseSettings):
     github_webhook_secret: str
     github_installation_id: str | None = None
 
+    # AI/LLM Configuration
+    llm_provider: str = "anthropic"  # Options: anthropic, google
+    anthropic_api_key: str | None = None
+    google_api_key: str | None = None
+
     # Server settings
     host: str = "0.0.0.0"
     port: int = 8000
