@@ -1,0 +1,16 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+      # Mount private key file if it exists in the root
+      - ./*.pem:/app/*.pem
+    restart: always
+
+networks:
+  default:
+    name: almagest-network
