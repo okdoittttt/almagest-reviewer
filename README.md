@@ -44,18 +44,23 @@ LangGraph를 활용해 리뷰 단계를 명시적인 그래프 구조로 정의�
 
 ## High-level Architecture
 
-```text
-GitHub Pull Request Event
-          ↓
-   Webhook Receiver
-          ↓
-   LangGraph Workflow
-     ├─ Intent Analysis (PR 의도 파악)
-     ├─ Risk Classification (위험도 평가)
-     ├─ File Review Loop (파일별 상세 리뷰)
-     └─ Review Summary (최종 요약 및 결정)
-          ↓
- GitHub Review Comment (APPROVE/COMMENT/REQUEST_CHANGES)
+```mermaid
+graph TD
+    GitHub[GitHub Pull Request] -->|Webhook| Server[FastAPI Server]
+    Server -->|Parse & Verify| Collector[PR Data Collector]
+    Collector -->|Fetch Files & Commits| Data[PR Data]
+    Data --> SubGraph[LangGraph Workflow]
+    
+    subgraph "LangGraph Agent"
+        Intent[Intent Analysis] --> Risk[Risk Classification]
+        Risk --> ReviewLoop{File Review Loop}
+        ReviewLoop -->|Next File| Review[File Reviewer]
+        Review -->|Continue| ReviewLoop
+        ReviewLoop -->|Done| Summary[Review Summary]
+    end
+    
+    Summary -->|Create Comment| Client[GitHub Client]
+    Client -->|Post Review| GitHub
 ```
 
 ---
@@ -123,6 +128,32 @@ docker run -d -p 8000:8000 --env-file .env almagest-reviewer
 ## Architecture Deep Dive
 
 ### LangGraph Workflow
+
+```mermaid
+sequenceDiagram
+    participant GH as GitHub
+    participant Svr as Webhook Server
+    participant LG as LangGraph
+    
+    GH->>Svr: POST /webhook (PR Created)
+    Svr->>GH: Get PR Files & Diff
+    GH-->>Svr: Files Data
+    
+    Svr->>LG: Start Workflow
+    
+    activate LG
+    LG->>LG: Analyze Intent
+    LG->>LG: Classify Risk
+    
+    loop For each file
+        LG->>LG: Review File
+    end
+    
+    LG->>LG: Summarize Reviews
+    deactivate LG
+    
+    LG->>GH: POST Comment (Review Result)
+```
 
 리뷰 프로세스는 다음과 같은 4단계 그래프 노드로 구성됩니다.
 
