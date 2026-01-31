@@ -1,5 +1,5 @@
 """
-Github APP JWT generation
+Github APP JWT 생성
 """
 import time
 from datetime import datetime, timedelta
@@ -7,14 +7,14 @@ from datetime import datetime, timedelta
 import jwt
 from loguru import logger
 
-def generate_jwt(app_id: str, private_key: bytes, expriation_seconds: int = 600) -> str:
+def generate_jwt(app_id: str, private_key: bytes, expiration_seconds: int = 600) -> str:
     """
     Github APP authentication을 위한 JWT 토큰 생성
 
     Args:
         app_id (str): Github APP ID
         private_key (bytes): Github APP private key
-        expriation_seconds (int, optional): JWT 토큰의 만료 시간. Defaults to 600.
+        expiration_seconds (int, optional): JWT 토큰의 만료 시간. Defaults to 600.
 
     Returns:
         str: JWT 토큰
@@ -29,7 +29,7 @@ def generate_jwt(app_id: str, private_key: bytes, expriation_seconds: int = 600)
 
     # JWT payload 생성
     payload = {
-        "iai": now - 60,
+        "iat": now - 60,
         "exp": now + expiration_seconds,
         "iss": app_id
     }
