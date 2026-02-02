@@ -9,6 +9,7 @@ from loguru import logger
 from app.reviewer.state import ReviewState
 from app.reviewer.prompts import create_summary_prompt
 from app.reviewer.llm import get_llm
+from app.reviewer.utils import parse_llm_json_response
 
 
 async def summarize_review(state: ReviewState) -> dict:
@@ -45,14 +46,7 @@ async def summarize_review(state: ReviewState) -> dict:
 
         # JSON 파싱
         try:
-            if "```json" in response_text:
-                json_start = response_text.find("```json") + 7
-                json_end = response_text.find("```", json_start)
-                json_text = response_text[json_start:json_end].strip()
-            else:
-                json_text = response_text.strip()
-
-            summary = json.loads(json_text)
+            summary = parse_llm_json_response(response_text)
 
             decision = summary.get("decision", "COMMENT")
             final_comment = summary.get("comment", response_text)
