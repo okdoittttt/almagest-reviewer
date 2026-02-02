@@ -74,6 +74,3 @@ async def github_webhook(request: Request):
         )
 
     return JSONResponse({"status": "success"})
-
-    def print_hello_world():
-        print("Hello World")

@@ -8,8 +8,7 @@ from app.reviewer.state import ReviewState
 from app.reviewer.nodes import (
     analyze_pr_intent,
     classify_risk,
-    review_next_file,
-    should_continue_review,
+    review_all_files,
     summarize_review
 )
 
@@ -18,17 +17,14 @@ def create_review_graph() -> StateGraph:
     """
     코드 리뷰 LanGraph 그래프 생성
 
-    그래프 흐름:
+    그래프 흐름 (병렬 처리 버전):
     START
       ↓
     analyze_intent (PR 의도 분석)
       ↓
     classify_risk (위험도 분류)
       ↓
-    review_file (파일별 리뷰) ←┐
-      ↓                        │
-    should_continue? ──────────┘
-      │ (더 리뷰할 파일이 있으면 loop)
+    review_all_files (모든 파일 병렬 리뷰)
       ↓
     summarize (최종 요약)
       ↓
@@ -45,30 +41,19 @@ def create_review_graph() -> StateGraph:
     # 노드 추가
     workflow.add_node("analyze_intent", analyze_pr_intent)
     workflow.add_node("classify_risk", classify_risk)
-    workflow.add_node("review_file", review_next_file)
+    workflow.add_node("review_all_files", review_all_files)
     workflow.add_node("summarize", summarize_review)
 
     # 시작점 설정
     workflow.set_entry_point("analyze_intent")
 
-    # 일반 엣지 (순차 진행)
+    # 순차 엣지
     workflow.add_edge("analyze_intent", "classify_risk")
-    workflow.add_edge("classify_risk", "review_file")
-
-    # 조건부 엣지 (Loop)
-    workflow.add_conditional_edges(
-        "review_file",  # 출발 노드
-        should_continue_review,  # 조건 함수
-        {
-            "continue": "review_file",  # 계속 리뷰 → review_file로 돌아감
-            "done": "summarize"         # 완료 → summarize로 진행
-        }
-    )
-
-    # 종료 엣지
+    workflow.add_edge("classify_risk", "review_all_files")
+    workflow.add_edge("review_all_files", "summarize")
     workflow.add_edge("summarize", END)
 
-    logger.info("✅ LanGraph 그래프 생성 완료")
+    logger.info("✅ LanGraph 그래프 생성 완료 (병렬 처리)")
 
     return workflow
 

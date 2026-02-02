@@ -9,6 +9,7 @@ from loguru import logger
 from app.reviewer.state import ReviewState
 from app.reviewer.prompts import create_intent_analysis_prompt
 from app.reviewer.llm import get_llm
+from app.reviewer.utils import parse_llm_json_response
 
 
 async def analyze_pr_intent(state: ReviewState) -> dict:
@@ -40,15 +41,7 @@ async def analyze_pr_intent(state: ReviewState) -> dict:
 
         # JSON 파싱
         try:
-            # JSON 블록 추출 (```json ... ``` 형식)
-            if "```json" in response_text:
-                json_start = response_text.find("```json") + 7
-                json_end = response_text.find("```", json_start)
-                json_text = response_text[json_start:json_end].strip()
-            else:
-                json_text = response_text.strip()
-
-            pr_intent = json.loads(json_text)
+            pr_intent = parse_llm_json_response(response_text)
 
             logger.info(
                 f"✅ PR 의도 분석 완료: {pr_intent.get('type', 'unknown')} - "
@@ -56,7 +49,6 @@ async def analyze_pr_intent(state: ReviewState) -> dict:
             )
 
         except json.JSONDecodeError as e:
-            logger.error(f"JSON 파싱 실패: {e}")
             # 파싱 실패 시 기본값
             pr_intent = {
                 "type": "unknown",

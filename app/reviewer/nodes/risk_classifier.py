@@ -9,6 +9,7 @@ from loguru import logger
 from app.reviewer.state import ReviewState
 from app.reviewer.prompts import create_risk_assessment_prompt
 from app.reviewer.llm import get_llm
+from app.reviewer.utils import parse_llm_json_response
 
 
 async def classify_risk(state: ReviewState) -> dict:
@@ -41,14 +42,7 @@ async def classify_risk(state: ReviewState) -> dict:
 
         # JSON 파싱
         try:
-            if "```json" in response_text:
-                json_start = response_text.find("```json") + 7
-                json_end = response_text.find("```", json_start)
-                json_text = response_text[json_start:json_end].strip()
-            else:
-                json_text = response_text.strip()
-
-            risk_assessment = json.loads(json_text)
+            risk_assessment = parse_llm_json_response(response_text)
 
             logger.info(
                 f"✅ 위험도 분류 완료: {risk_assessment.get('level', 'UNKNOWN')} "
@@ -56,7 +50,6 @@ async def classify_risk(state: ReviewState) -> dict:
             )
 
         except json.JSONDecodeError as e:
-            logger.error(f"JSON 파싱 실패: {e}")
             risk_assessment = {
                 "level": "MEDIUM",
                 "score": 5,
