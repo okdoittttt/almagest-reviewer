@@ -27,8 +27,16 @@ def parse_llm_json_response(response_text: str) -> dict[str, Any]:
         # JSON 블록 추출 (```json ... ``` 형식)
         if "```json" in response_text:
             json_start = response_text.find("```json") + 7
-            json_end = response_text.find("```", json_start)
-            json_text = response_text[json_start:json_end].strip()
+            # 마지막 ``` 찾기 (응답 내용에 ``` 문자열이 포함될 수 있으므로)
+            json_end = response_text.rfind("```")
+
+            # 유효한 범위인지 확인
+            if json_end > json_start:
+                json_text = response_text[json_start:json_end].strip()
+            else:
+                # 닫는 태그가 없으면 시작점부터 끝까지
+                logger.warning("JSON 블록의 닫는 태그(```)를 찾을 수 없습니다. 시작점부터 끝까지 파싱을 시도합니다.")
+                json_text = response_text[json_start:].strip()
         else:
             json_text = response_text.strip()
 
