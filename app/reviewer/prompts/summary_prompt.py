@@ -110,9 +110,14 @@ def create_summary_prompt(
   "action_items": [
     "수정이 필요한 항목 1",
     "수정이 필요한 항목 2"
-  ]
+  ],
+  "needs_deeper_review": false
 }}
 ```
+
+**needs_deeper_review 기준:**
+- `true`: 특정 파일의 리뷰 내용이 불충분하거나, high severity 이슈가 있는데 근거가 부족하여 더 깊은 분석이 필요한 경우
+- `false`: 리뷰 내용이 충분하거나, 파일 리뷰 자체가 없는 경우 (LOW 위험도 PR 등)
 
 **comment 필드는 다음 마크다운 형식을 따라주세요:**
 

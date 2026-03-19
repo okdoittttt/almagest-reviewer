@@ -40,7 +40,7 @@ class ReviewState(TypedDict):
     # }
 
     # ===== 3단계: 파일별 리뷰 (Loop) =====
-    file_reviews: Annotated[list[dict], add]  # 파일별 리뷰 결과 (누적)
+    file_reviews: list[dict]  # 파일별 리뷰 결과 (재시도 시 교체)
     # 예시: [
     #   {
     #     "filename": "src/auth.py",
@@ -55,6 +55,10 @@ class ReviewState(TypedDict):
     # ]
 
     current_file_index: int            # 현재 리뷰 중인 파일 인덱스
+
+    # ===== 재시도 제어 =====
+    retry_count: int                   # 현재까지 review_all_files 실행 횟수
+    needs_retry: bool                  # summarizer가 재리뷰 필요 여부를 판단해 설정
 
     # ===== 4단계: 최종 요약 =====
     final_review: Optional[str]        # 최종 리뷰 코멘트 (마크다운)
@@ -103,6 +107,10 @@ def create_initial_state(
         # 파일 리뷰 (초기값 빈 리스트)
         file_reviews=[],
         current_file_index=0,
+
+        # 재시도 제어
+        retry_count=0,
+        needs_retry=False,
 
         # 최종 결과 (초기값 None)
         final_review=None,

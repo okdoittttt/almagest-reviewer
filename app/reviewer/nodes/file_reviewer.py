@@ -132,7 +132,8 @@ async def review_all_files(state: ReviewState) -> dict:
             "errors": []
         }
 
-    logger.info(f"🚀 {total_files}개 파일 병렬 리뷰 시작...")
+    retry_count = state.get("retry_count", 0) + 1
+    logger.info(f"🚀 {total_files}개 파일 병렬 리뷰 시작... (실행 횟수: {retry_count})")
 
     # 모든 파일 리뷰를 병렬로 실행
     review_tasks = [
@@ -163,5 +164,7 @@ async def review_all_files(state: ReviewState) -> dict:
     return {
         "file_reviews": file_reviews,
         "messages": messages,
-        "errors": errors
+        "errors": errors,
+        "retry_count": retry_count,
+        "needs_retry": False,  # summarize 노드가 다시 판단
     }

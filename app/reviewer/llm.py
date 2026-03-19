@@ -6,6 +6,9 @@ Anthropic Claude 또는 Google Gemini를 선택하여 사용할 수 있습니다
 from typing import Any
 from loguru import logger
 
+from langchain_anthropic import ChatAnthropic
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_ollama import ChatOllama
 from langchain_core.language_models.chat_models import BaseChatModel
 from app.config import settings
 
@@ -30,10 +33,12 @@ def get_llm(temperature: float = 0.0, **kwargs: Any) -> BaseChatModel:
         return _get_anthropic_llm(temperature, **kwargs)
     elif provider == "google":
         return _get_google_llm(temperature, **kwargs)
+    elif provider == "ollama":
+        return _get_ollama_llm(temperature, **kwargs)
     else:
         raise ValueError(
             f"지원하지 않는 LLM provider: {provider}. "
-            f"'anthropic' 또는 'google'을 사용하세요."
+            f"'anthropic', 'google', 'ollama'을 사용하세요."
         )
 
 
@@ -51,8 +56,6 @@ def _get_anthropic_llm(temperature: float = 0.0, **kwargs: Any) -> BaseChatModel
     Raises:
         ValueError: API key가 없는 경우
     """
-    from langchain_anthropic import ChatAnthropic
-
     if not settings.anthropic_api_key:
         raise ValueError(
             "ANTHROPIC_API_KEY가 설정되지 않았습니다. "
@@ -85,8 +88,6 @@ def _get_google_llm(temperature: float = 0.0, **kwargs: Any) -> BaseChatModel:
     Raises:
         ValueError: API key가 없는 경우
     """
-    from langchain_google_genai import ChatGoogleGenerativeAI
-
     if not settings.google_api_key:
         raise ValueError(
             "GOOGLE_API_KEY가 설정되지 않았습니다. "
@@ -100,6 +101,35 @@ def _get_google_llm(temperature: float = 0.0, **kwargs: Any) -> BaseChatModel:
     return ChatGoogleGenerativeAI(
         model=model,
         google_api_key=settings.google_api_key,
+        temperature=temperature,
+        **kwargs
+    )
+
+
+def _get_ollama_llm(temperature: float = 0.0, **kwargs: Any) -> BaseChatModel:
+    """
+    Ollama 로컬 LLM 생성
+
+    Args:
+        temperature: LLM temperature
+        **kwargs: 추가 설정
+
+    Returns:
+        ChatOllama 인스턴스
+    """
+    if not settings.ollama_base_url:
+        raise ValueError(
+            "OLLAMA_BASE_URL이 설정되지 않았습니다. "
+            ".env 파일에 OLLAMA_BASE_URL을 추가하세요."
+        )
+
+    model = kwargs.pop("model", settings.ollama_model)
+
+    logger.debug(f"Ollama LLM 초기화: {model}, base_url={settings.ollama_base_url}, temperature={temperature}")
+
+    return ChatOllama(
+        model=model,
+        base_url=settings.ollama_base_url,
         temperature=temperature,
         **kwargs
     )
@@ -129,5 +159,8 @@ def get_available_providers() -> list[str]:
 
     if settings.google_api_key:
         available.append("google")
+
+    # Ollama는 항상 연결 가능 여부와 무관하게 목록에 포함
+    available.append("ollama")
 
     return available
