@@ -51,6 +51,14 @@ async def summarize_review(state: ReviewState) -> dict:
             decision = summary.get("decision", "COMMENT")
             final_comment = summary.get("comment", response_text)
 
+            # 재시도 판단: 에러 파일이 있거나 LLM이 재리뷰 필요하다고 판단한 경우
+            error_files = [r for r in file_reviews if r.get("status") == "ERROR"]
+            llm_needs_retry = summary.get("needs_deeper_review", False)
+            needs_retry = bool(error_files) or llm_needs_retry
+
+            if needs_retry:
+                reason = f"에러 파일 {len(error_files)}개" if error_files else "LLM 판단"
+                logger.info(f"🔄 재리뷰 필요 판단: {reason}")
             logger.info(f"✅ 최종 리뷰 완료: {decision}")
             logger.debug(f"리뷰 코멘트 길이: {len(final_comment)} 자")
 
@@ -58,10 +66,12 @@ async def summarize_review(state: ReviewState) -> dict:
             logger.error(f"JSON 파싱 실패, 원본 텍스트 사용: {e}")
             decision = "COMMENT"
             final_comment = response_text
+            needs_retry = False
 
         return {
             "final_review": final_comment,
             "review_decision": decision,
+            "needs_retry": needs_retry,
             "messages": [{
                 "role": "summarizer",
                 "content": response_text,
