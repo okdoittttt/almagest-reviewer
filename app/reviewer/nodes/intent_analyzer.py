@@ -13,14 +13,13 @@ from app.reviewer.utils import parse_llm_json_response
 
 
 async def analyze_pr_intent(state: ReviewState) -> dict:
-    """
-    PR의 의도를 분석하는 노드
+    """PR의 의도를 분석하는 노드.
 
     Args:
-        state: 현재 리뷰 상태
+        state: 현재 리뷰 상태.
 
     Returns:
-        업데이트된 상태 (pr_intent, messages 추가)
+        ``pr_intent``와 ``messages``가 추가된 상태 업데이트 딕셔너리.
     """
     logger.info("🎯 PR 의도 분석 시작...")
 

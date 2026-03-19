@@ -13,14 +13,13 @@ from app.reviewer.utils import parse_llm_json_response
 
 
 async def summarize_review(state: ReviewState) -> dict:
-    """
-    모든 리뷰를 종합하여 최종 코멘트를 생성하는 노드
+    """모든 리뷰를 종합하여 최종 코멘트를 생성하는 노드.
 
     Args:
-        state: 현재 리뷰 상태
+        state: 현재 리뷰 상태.
 
     Returns:
-        업데이트된 상태 (final_review, review_decision 추가)
+        ``final_review``, ``review_decision``, ``needs_retry``, ``messages``가 포함된 상태 업데이트 딕셔너리.
     """
     logger.info("📝 최종 리뷰 요약 시작...")
 

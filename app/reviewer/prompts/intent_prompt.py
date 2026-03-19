@@ -5,14 +5,13 @@ from app.models import PRData
 
 
 def create_intent_analysis_prompt(pr_data: PRData) -> str:
-    """
-    PR의 의도를 분석하는 프롬프트 생성
+    """PR의 의도를 분석하는 프롬프트를 생성합니다.
 
     Args:
-        pr_data: PR 데이터
+        pr_data: PR 데이터.
 
     Returns:
-        프롬프트 문자열
+        LLM에 전달할 프롬프트 문자열.
     """
     commits_summary = "\n".join([
         f"- {commit.sha[:7]}: {commit.message.split(chr(10))[0]}"

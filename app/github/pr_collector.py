@@ -1,6 +1,4 @@
-"""
-Pull Request 데이터 수집 모듈
-"""
+"""Pull Request 데이터 수집 모듈."""
 from typing import Optional
 from loguru import logger
 
@@ -9,9 +7,7 @@ from app.models import PRData, FileChange, CommitInfo, Author
 
 
 class PRDataCollector:
-    """
-    Pull Request의 모든 데이터를 수집하고 구조화된 PRData 객체로 변환
-    """
+    """Pull Request의 모든 데이터를 수집하고 구조화된 PRData 객체로 변환."""
 
     def __init__(self, github_client: GitHubClient):
         self.client = github_client
@@ -24,8 +20,7 @@ class PRDataCollector:
         pull_number: int,
         include_commits: bool = True
     ) -> PRData:
-        """
-        PR의 모든 데이터를 수집하여 PRData 객체로 반환
+        """PR의 모든 데이터를 수집하여 PRData 객체로 반환.
 
         Args:
             installation_id: GitHub App Installation ID
@@ -93,8 +88,7 @@ class PRDataCollector:
         repo_owner: str,
         repo_name: str
     ) -> PRData:
-        """
-        GitHub API 응답을 PRData 객체로 변환
+        """GitHub API 응답을 PRData 객체로 변환.
 
         Args:
             pr_details: PR 상세 정보
@@ -148,8 +142,7 @@ class PRDataCollector:
         )
 
     def _convert_to_file_change(self, file_data: dict) -> FileChange:
-        """
-        GitHub API의 파일 데이터를 FileChange 객체로 변환
+        """GitHub API의 파일 데이터를 FileChange 객체로 변환.
 
         Args:
             file_data: GitHub API 파일 데이터
@@ -169,8 +162,7 @@ class PRDataCollector:
         )
 
     def _convert_to_commit_info(self, commit_data: dict) -> CommitInfo:
-        """
-        GitHub API의 커밋 데이터를 CommitInfo 객체로 변환
+        """GitHub API의 커밋 데이터를 CommitInfo 객체로 변환.
 
         Args:
             commit_data: GitHub API 커밋 데이터
@@ -213,8 +205,7 @@ class PRDataCollector:
         pull_number: int,
         filename: str
     ) -> Optional[str]:
-        """
-        특정 파일의 diff만 가져오기
+        """특정 파일의 diff만 가져오기.
 
         Args:
             installation_id: GitHub App Installation ID

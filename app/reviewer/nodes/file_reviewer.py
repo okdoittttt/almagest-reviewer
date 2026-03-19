@@ -21,18 +21,17 @@ async def review_single_file(
     pr_intent: dict,
     risk_assessment: dict
 ) -> dict:
-    """
-    단일 파일을 리뷰하는 헬퍼 함수
+    """단일 파일을 리뷰하는 헬퍼 함수.
 
     Args:
-        file: 리뷰할 파일
-        file_index: 파일 인덱스 (로깅용)
-        total_files: 전체 파일 수 (로깅용)
-        pr_intent: PR 의도 분석 결과
-        risk_assessment: 위험도 평가 결과
+        file: 리뷰할 파일.
+        file_index: 파일 인덱스 (로깅용).
+        total_files: 전체 파일 수 (로깅용).
+        pr_intent: PR 의도 분석 결과.
+        risk_assessment: 위험도 평가 결과.
 
     Returns:
-        파일 리뷰 결과 딕셔너리
+        ``review``, ``message``, ``error`` 키를 포함하는 딕셔너리.
     """
     logger.info(f"📄 파일 리뷰 중 ({file_index + 1}/{total_files}): {file.filename}")
 
@@ -108,14 +107,13 @@ async def review_single_file(
 
 
 async def review_all_files(state: ReviewState) -> dict:
-    """
-    모든 파일을 병렬로 리뷰하는 노드
+    """모든 파일을 병렬로 리뷰하는 노드.
 
     Args:
-        state: 현재 리뷰 상태
+        state: 현재 리뷰 상태.
 
     Returns:
-        업데이트된 상태 (file_reviews, messages 추가)
+        ``file_reviews``, ``messages``, ``errors``, ``retry_count``가 포함된 상태 업데이트 딕셔너리.
     """
     pr_data = state["pr_data"]
     pr_intent = state.get("pr_intent", {})

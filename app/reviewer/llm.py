@@ -14,18 +14,17 @@ from app.config import settings
 
 
 def get_llm(temperature: float = 0.0, **kwargs: Any) -> BaseChatModel:
-    """
-    설정에 따라 적절한 LLM을 반환하는 팩토리 함수
+    """설정에 따라 적절한 LLM을 반환하는 팩토리 함수.
 
     Args:
-        temperature: LLM temperature (0.0 = deterministic, 1.0 = creative)
-        **kwargs: 추가 LLM 설정
+        temperature: LLM temperature. 0.0은 결정론적, 1.0은 창의적 응답을 생성합니다.
+        **kwargs: 추가 LLM 설정.
 
     Returns:
-        BaseChatModel 인스턴스 (ChatAnthropic 또는 ChatGoogleGenerativeAI)
+        설정된 provider에 맞는 BaseChatModel 인스턴스.
 
     Raises:
-        ValueError: 지원하지 않는 provider이거나 API key가 없는 경우
+        ValueError: 지원하지 않는 provider이거나 API key가 없는 경우.
     """
     provider = settings.llm_provider.lower()
 
@@ -43,18 +42,17 @@ def get_llm(temperature: float = 0.0, **kwargs: Any) -> BaseChatModel:
 
 
 def _get_anthropic_llm(temperature: float = 0.0, **kwargs: Any) -> BaseChatModel:
-    """
-    Anthropic Claude LLM 생성
+    """Anthropic Claude LLM을 생성합니다.
 
     Args:
-        temperature: LLM temperature
-        **kwargs: 추가 설정
+        temperature: LLM temperature.
+        **kwargs: 추가 설정.
 
     Returns:
-        ChatAnthropic 인스턴스
+        ChatAnthropic 인스턴스.
 
     Raises:
-        ValueError: API key가 없는 경우
+        ValueError: ANTHROPIC_API_KEY가 설정되지 않은 경우.
     """
     if not settings.anthropic_api_key:
         raise ValueError(
@@ -75,18 +73,17 @@ def _get_anthropic_llm(temperature: float = 0.0, **kwargs: Any) -> BaseChatModel
 
 
 def _get_google_llm(temperature: float = 0.0, **kwargs: Any) -> BaseChatModel:
-    """
-    Google Gemini LLM 생성
+    """Google Gemini LLM을 생성합니다.
 
     Args:
-        temperature: LLM temperature
-        **kwargs: 추가 설정
+        temperature: LLM temperature.
+        **kwargs: 추가 설정.
 
     Returns:
-        ChatGoogleGenerativeAI 인스턴스
+        ChatGoogleGenerativeAI 인스턴스.
 
     Raises:
-        ValueError: API key가 없는 경우
+        ValueError: GOOGLE_API_KEY가 설정되지 않은 경우.
     """
     if not settings.google_api_key:
         raise ValueError(
@@ -107,15 +104,17 @@ def _get_google_llm(temperature: float = 0.0, **kwargs: Any) -> BaseChatModel:
 
 
 def _get_ollama_llm(temperature: float = 0.0, **kwargs: Any) -> BaseChatModel:
-    """
-    Ollama 로컬 LLM 생성
+    """Ollama 로컬 LLM 생성.
 
     Args:
-        temperature: LLM temperature
-        **kwargs: 추가 설정
+        temperature: LLM temperature.
+        **kwargs: 추가 설정.
 
     Returns:
-        ChatOllama 인스턴스
+        ChatOllama 인스턴스.
+
+    Raises:
+        ValueError: OLLAMA_BASE_URL이 설정되지 않은 경우.
     """
     if not settings.ollama_base_url:
         raise ValueError(
@@ -136,21 +135,19 @@ def _get_ollama_llm(temperature: float = 0.0, **kwargs: Any) -> BaseChatModel:
 
 
 def get_current_provider() -> str:
-    """
-    현재 사용 중인 LLM provider 반환
+    """현재 사용 중인 LLM provider 반환.
 
     Returns:
-        provider 이름 (anthropic 또는 google)
+        provider 이름 (``"anthropic"``, ``"google"``, ``"ollama"`` 중 하나).
     """
     return settings.llm_provider.lower()
 
 
 def get_available_providers() -> list[str]:
-    """
-    사용 가능한 LLM provider 목록 반환
+    """사용 가능한 LLM provider 목록을 반환합니다.
 
     Returns:
-        사용 가능한 provider 목록
+        사용 가능한 provider 이름 목록. Ollama는 항상 포함됩니다.
     """
     available = []
 

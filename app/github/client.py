@@ -1,6 +1,4 @@
-"""
-GitHub App 인증 방식을 사용하는 GitHub API 클라이언트
-"""
+"""GitHub App 인증 방식을 사용하는 GitHub API 클라이언트."""
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -12,8 +10,7 @@ from app.auth import generate_jwt
 
 
 class GitHubClient:
-    """
-    GitHub App 인증을 자동으로 처리하는 GitHub API 클라이언트
+    """GitHub App 인증을 자동으로 처리하는 GitHub API 클라이언트.
 
     JWT 생성과 Installation Access Token 발급 및 관리를 내부에서 자동으로 처리한다.
     """
@@ -27,8 +24,7 @@ class GitHubClient:
         self._token_expires_at: datetime | None = None
 
     def _get_jwt(self) -> str:
-        """
-        GitHub App 인증에 사용되는 JWT 토큰을 생성한다.
+        """GitHub App 인증에 사용되는 JWT 토큰을 생성한다.
 
         Returns:
             JWT 토큰 문자열
@@ -36,8 +32,7 @@ class GitHubClient:
         return generate_jwt(self.app_id, self.private_key)
 
     async def get_installation_token(self, installation_id: str) -> str:
-        """
-        JWT를 사용해 Installation Access Token을 발급받는다.
+        """JWT를 사용해 Installation Access Token을 발급받는다.
 
         발급된 토큰은 만료될 때까지(최대 1시간) 캐시하여 재사용한다.
 
@@ -88,8 +83,7 @@ class GitHubClient:
         pull_number: int,
         comment_body: str
     ) -> dict[str, Any]:
-        """
-        Pull Request에 코멘트를 작성한다.
+        """Pull Request에 코멘트를 작성한다.
 
         Args:
             installation_id: GitHub App의 Installation ID
@@ -130,8 +124,7 @@ class GitHubClient:
         repo_name: str,
         pull_number: int
     ) -> list[dict[str, Any]]:
-        """
-        Pull Request에서 변경된 파일 목록을 조회한다.
+        """Pull Request에서 변경된 파일 목록을 조회한다.
 
         Args:
             installation_id: GitHub App의 Installation ID
@@ -171,8 +164,7 @@ class GitHubClient:
         file_path: str,
         ref: str = "main"
     ) -> str:
-        """
-        저장소 내 특정 파일의 내용을 조회한다.
+        """저장소 내 특정 파일의 내용을 조회한다.
 
         Args:
             installation_id: GitHub App의 Installation ID
@@ -212,8 +204,7 @@ class GitHubClient:
         repo_name: str,
         pull_number: int
     ) -> list[dict[str, Any]]:
-        """
-        Pull Request의 커밋 목록을 조회한다.
+        """Pull Request의 커밋 목록을 조회한다.
 
         Args:
             installation_id: GitHub App의 Installation ID
@@ -252,8 +243,7 @@ class GitHubClient:
         repo_name: str,
         pull_number: int
     ) -> dict[str, Any]:
-        """
-        Pull Request의 상세 정보를 조회한다.
+        """Pull Request의 상세 정보를 조회한다.
 
         Args:
             installation_id: GitHub App의 Installation ID

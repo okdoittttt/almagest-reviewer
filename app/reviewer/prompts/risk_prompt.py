@@ -5,15 +5,14 @@ from app.models import PRData
 
 
 def create_risk_assessment_prompt(pr_data: PRData, pr_intent: dict) -> str:
-    """
-    변경의 위험도를 평가하는 프롬프트 생성
+    """변경의 위험도를 평가하는 프롬프트를 생성합니다.
 
     Args:
-        pr_data: PR 데이터
-        pr_intent: PR 의도 분석 결과
+        pr_data: PR 데이터.
+        pr_intent: PR 의도 분석 결과.
 
     Returns:
-        프롬프트 문자열
+        LLM에 전달할 프롬프트 문자열.
     """
     # 파일별 변경 요약
     files_by_type = {}

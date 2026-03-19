@@ -13,14 +13,13 @@ from app.reviewer.utils import parse_llm_json_response
 
 
 async def classify_risk(state: ReviewState) -> dict:
-    """
-    PR의 위험도를 분류하는 노드
+    """PR의 위험도를 분류하는 노드.
 
     Args:
-        state: 현재 리뷰 상태
+        state: 현재 리뷰 상태.
 
     Returns:
-        업데이트된 상태 (risk_assessment, messages 추가)
+        ``risk_assessment``와 ``messages``가 추가된 상태 업데이트 딕셔너리.
     """
     logger.info("⚠️  위험도 분류 시작...")
 

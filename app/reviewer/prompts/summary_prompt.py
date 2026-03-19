@@ -10,17 +10,16 @@ def create_summary_prompt(
     risk_assessment: dict,
     file_reviews: list[dict]
 ) -> str:
-    """
-    최종 리뷰 요약을 생성하는 프롬프트
+    """최종 리뷰 요약을 생성하는 프롬프트를 생성합니다.
 
     Args:
-        pr_data: PR 데이터
-        pr_intent: PR 의도 분석 결과
-        risk_assessment: 위험도 평가 결과
-        file_reviews: 파일별 리뷰 결과 목록
+        pr_data: PR 데이터.
+        pr_intent: PR 의도 분석 결과.
+        risk_assessment: 위험도 평가 결과.
+        file_reviews: 파일별 리뷰 결과 목록.
 
     Returns:
-        프롬프트 문자열
+        LLM에 전달할 프롬프트 문자열.
     """
     # 이슈 집계
     all_issues = []

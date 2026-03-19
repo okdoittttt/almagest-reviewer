@@ -9,16 +9,15 @@ def create_file_review_prompt(
     pr_intent: dict,
     risk_assessment: dict
 ) -> str:
-    """
-    개별 파일을 리뷰하는 프롬프트 생성
+    """개별 파일을 리뷰하는 프롬프트를 생성합니다.
 
     Args:
-        file: 파일 변경 정보
-        pr_intent: PR 의도 분석 결과
-        risk_assessment: 위험도 평가 결과
+        file: 파일 변경 정보.
+        pr_intent: PR 의도 분석 결과.
+        risk_assessment: 위험도 평가 결과.
 
     Returns:
-        프롬프트 문자열
+        LLM에 전달할 프롬프트 문자열.
     """
     # Diff가 없는 경우 (바이너리 파일, 이름 변경 등)
     if not file.patch:

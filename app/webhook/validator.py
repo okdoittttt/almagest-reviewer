@@ -1,6 +1,4 @@
-"""
-GitHub Webhook 서명 검증
-"""
+"""GitHub Webhook 서명 검증."""
 import hmac
 import hashlib
 import json
@@ -13,15 +11,14 @@ from app.config import settings
 
 
 def calculate_signature(secret: str, payload: bytes) -> str:
-    """
-    HMAC-SHA256 서명을 계산합니다.
+    """HMAC-SHA256 서명을 계산합니다.
 
     Args:
-        secret: Webhook secret key
-        payload: Request body (raw bytes)
+        secret (str): Webhook secret key.
+        payload (bytes): Request body (raw bytes).
 
     Returns:
-        'sha256=' 접두사가 붙은 서명 문자열
+        str: 'sha256=' 접두사가 붙은 서명 문자열.
     """
     signature = hmac.new(
         secret.encode('utf-8'),
@@ -33,17 +30,16 @@ def calculate_signature(secret: str, payload: bytes) -> str:
 
 
 def verify_signature(signature_header: str, calculated_signature: str) -> bool:
-    """
-    GitHub에서 보낸 서명과 계산한 서명을 비교합니다.
+    """GitHub에서 보낸 서명과 계산한 서명을 비교합니다.
 
     타이밍 공격을 방지하기 위해 hmac.compare_digest를 사용합니다.
 
     Args:
-        signature_header: X-Hub-Signature-256 헤더 값
-        calculated_signature: 계산한 서명
+        signature_header (str): X-Hub-Signature-256 헤더 값.
+        calculated_signature (str): 계산한 서명.
 
     Returns:
-        서명이 일치하면 True, 아니면 False
+        bool: 서명이 일치하면 True, 아니면 False.
     """
     if not signature_header:
         return False
@@ -52,20 +48,19 @@ def verify_signature(signature_header: str, calculated_signature: str) -> bool:
 
 
 async def verify_webhook_signature(request: Request) -> bytes:
-    """
-    GitHub Webhook 서명을 검증하는 FastAPI Dependency 함수
+    """GitHub Webhook 서명을 검증하는 FastAPI Dependency 함수.
 
     Request Body의 서명을 검증하고, 검증된 raw bytes를 반환합니다.
     검증 실패 시 HTTPException을 발생시킵니다.
 
     Args:
-        request: FastAPI Request 객체
+        request (Request): FastAPI Request 객체.
 
     Returns:
-        검증된 Request Body (raw bytes)
+        bytes: 검증된 Request Body (raw bytes).
 
     Raises:
-        HTTPException: 서명 검증 실패 시 403 Forbidden
+        HTTPException: 서명 검증 실패 시 403 Forbidden.
     """
     # 개발 환경에서는 검증 스킵 (선택사항)
     # 프로덕션에서는 반드시 검증해야 합니다
