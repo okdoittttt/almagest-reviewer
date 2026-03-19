@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     google_api_key: str | None = None
 
     # Ollama (로컬 LLM)
-    ollama_base_url: str = "http://localhost:11434"
+    ollama_base_url: str | None = None
     ollama_model: str = "llama3.2"
 
     # Server settings
