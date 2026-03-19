@@ -30,10 +30,12 @@ def get_llm(temperature: float = 0.0, **kwargs: Any) -> BaseChatModel:
         return _get_anthropic_llm(temperature, **kwargs)
     elif provider == "google":
         return _get_google_llm(temperature, **kwargs)
+    elif provider == "ollama":
+        return _get_ollama_llm(temperature, **kwargs)
     else:
         raise ValueError(
             f"지원하지 않는 LLM provider: {provider}. "
-            f"'anthropic' 또는 'google'을 사용하세요."
+            f"'anthropic', 'google', 'ollama'을 사용하세요."
         )
 
 
@@ -105,6 +107,31 @@ def _get_google_llm(temperature: float = 0.0, **kwargs: Any) -> BaseChatModel:
     )
 
 
+def _get_ollama_llm(temperature: float = 0.0, **kwargs: Any) -> BaseChatModel:
+    """
+    Ollama 로컬 LLM 생성
+
+    Args:
+        temperature: LLM temperature
+        **kwargs: 추가 설정
+
+    Returns:
+        ChatOllama 인스턴스
+    """
+    from langchain_ollama import ChatOllama
+
+    model = kwargs.pop("model", settings.ollama_model)
+
+    logger.debug(f"Ollama LLM 초기화: {model}, base_url={settings.ollama_base_url}, temperature={temperature}")
+
+    return ChatOllama(
+        model=model,
+        base_url=settings.ollama_base_url,
+        temperature=temperature,
+        **kwargs
+    )
+
+
 def get_current_provider() -> str:
     """
     현재 사용 중인 LLM provider 반환
@@ -129,5 +156,8 @@ def get_available_providers() -> list[str]:
 
     if settings.google_api_key:
         available.append("google")
+
+    # Ollama는 항상 연결 가능 여부와 무관하게 목록에 포함
+    available.append("ollama")
 
     return available

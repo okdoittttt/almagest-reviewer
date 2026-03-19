@@ -15,9 +15,13 @@ class Settings(BaseSettings):
     github_installation_id: str | None = None
 
     # AI/LLM Configuration
-    llm_provider: str = "anthropic"  # Options: anthropic, google
+    llm_provider: str = "anthropic"  # Options: anthropic, google, ollama
     anthropic_api_key: str | None = None
     google_api_key: str | None = None
+
+    # Ollama (로컬 LLM)
+    ollama_base_url: str = "http://localhost:11434"
+    ollama_model: str = "llama3.2"
 
     # Server settings
     host: str = "0.0.0.0"
