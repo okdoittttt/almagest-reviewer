@@ -26,6 +26,9 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     restart: always
 
 volumes:
