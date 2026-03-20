@@ -127,6 +127,7 @@ docker run -d -p 8000:8000 --env-file .env almagest-reviewer
 3. **Pull Request 생성**: 해당 레포지토리에서 PR을 생성하거나 코드를 업데이트합니다.
 4. **자동 리뷰 확인**: `almagest-reviewer`가 자동으로 PR을 분석하고 리뷰 코멘트를 남깁니다.
 
+
 ---
 
 ## Architecture Deep Dive
