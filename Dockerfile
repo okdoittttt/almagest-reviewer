@@ -16,6 +16,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
+# Make entrypoint executable
+RUN chmod +x entrypoint.sh
+
 # Expose port
 EXPOSE 8000
 
@@ -24,5 +27,5 @@ ENV PYTHONUNBUFFERED=1
 ENV HOST=0.0.0.0
 ENV PORT=8000
 
-# Run the application
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run migrations then start the application
+CMD ["sh", "entrypoint.sh"]
