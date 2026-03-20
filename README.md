@@ -78,7 +78,6 @@ graph TD
 
 `.env.example`을 복사하여 `.env` 파일을 생성하고 필수 값을 입력합니다.
 
-
 ```bash
 cp .env.example .env
 ```
