@@ -18,6 +18,7 @@ class Settings(BaseSettings):
         google_api_key: Google API 키 (provider가 google인 경우 필수).
         ollama_base_url: Ollama 서버 주소 (provider가 ollama인 경우 필수).
         ollama_model: Ollama에서 사용할 모델 이름.
+        database_url: SQLAlchemy async 데이터베이스 URL.
         host: 서버 바인딩 주소.
         port: 서버 포트.
     """
@@ -36,6 +37,9 @@ class Settings(BaseSettings):
     # Ollama (로컬 LLM)
     ollama_base_url: str | None = None
     ollama_model: str = "llama3.2"
+
+    # 데이터베이스
+    database_url: str = "postgresql+asyncpg://almagest:almagest@db:5432/almagest_reviewer"
 
     # 서버 설정
     host: str = "0.0.0.0"

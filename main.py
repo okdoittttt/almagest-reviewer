@@ -1,12 +1,15 @@
 import json
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
 from loguru import logger
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.database import get_db
 from app.github import GitHubClient, PRDataCollector
-from app.webhook import verify_webhook_signature
 from app.reviewer import run_review
+from app.services.review_service import persist_review_result
+from app.webhook import verify_webhook_signature
 
 app = FastAPI()
 github_client = GitHubClient()
@@ -18,20 +21,21 @@ async def health_check():
     return {"status": "ok", "service": "almagest-reviewer"}
 
 @app.post("/webhook")
-async def github_webhook(request: Request):
+async def github_webhook(request: Request, session: AsyncSession = Depends(get_db)):
     # Webhook 서명 검증
     verified_body = await verify_webhook_signature(request)
 
     # 검증된 body를 JSON으로 파싱
     payload = json.loads(verified_body)
-    
+
     # PR 이벤트 처리
     if payload.get("action") in ["opened", "synchronize"]:
         installation_id = str(payload["installation"]["id"])
         repo = payload["repository"]
         pr = payload["pull_request"]
 
-        # PR 정보 추출
+        github_repo_id = repo["id"]
+        github_pr_id = pr["id"]
         repo_owner = repo["owner"]["login"]
         repo_name = repo["name"]
         pr_number = pr["number"]
@@ -53,6 +57,16 @@ async def github_webhook(request: Request):
             installation_id=installation_id,
             repo_owner=repo_owner,
             repo_name=repo_name
+        )
+
+        # 리뷰 결과 DB 영속화
+        await persist_review_result(
+            session=session,
+            installation_id=installation_id,
+            github_repo_id=github_repo_id,
+            github_pr_id=github_pr_id,
+            pr_data=pr_data,
+            review_result=review_result,
         )
 
         # 최종 리뷰 코멘트 추출
