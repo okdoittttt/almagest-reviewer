@@ -41,6 +41,15 @@ class Settings(BaseSettings):
     # 데이터베이스
     database_url: str = "postgresql+asyncpg://almagest:almagest@db:5432/almagest_reviewer"
 
+    # OAuth 로그인 (GitHub App > Settings > Client ID / Client Secret)
+    github_client_id: str = ""
+    github_client_secret: str = ""
+    # 접근 허용할 GitHub 로그인명, 콤마 구분 (예: "okdoittttt,teammate")
+    allowed_github_users: str = ""
+    # JWT 서명 키
+    jwt_secret: str = "change-me-please"
+    jwt_expire_hours: int = 72
+
     # 서버 설정
     host: str = "0.0.0.0"
     port: int = 8000

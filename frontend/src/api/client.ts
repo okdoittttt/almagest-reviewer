@@ -10,7 +10,23 @@ import type {
   Stats,
 } from './types'
 
-const api = axios.create({ baseURL: '/api' })
+// httpOnly 쿠키를 자동 전송하기 위해 withCredentials: true 설정
+// Authorization 헤더 불필요 — 쿠키가 모든 요청에 자동 포함됨
+const api = axios.create({ baseURL: '/api', withCredentials: true })
+
+// 401 응답 시 로그인 페이지로 이동
+api.interceptors.response.use(
+  r => r,
+  err => {
+    if (err.response?.status === 401 && window.location.pathname !== '/login') {
+      window.location.href = '/login'
+    }
+    return Promise.reject(err)
+  }
+)
+
+// Auth
+export const getMe = () => api.get<{ login: string }>('/auth/me').then(r => r.data)
 
 // Stats
 export const getStats = () => api.get<Stats>('/stats').then(r => r.data)

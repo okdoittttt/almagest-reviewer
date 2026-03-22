@@ -8,9 +8,10 @@ from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
+from app.dependencies.auth import get_current_user
 from app.github import GitHubClient, PRDataCollector
 from app.reviewer import run_review
-from app.routers import pull_requests, repositories, reviews, skills, stats
+from app.routers import auth, pull_requests, repositories, reviews, skills, stats
 from app.services.review_service import persist_review_result
 from app.webhook import verify_webhook_signature
 
@@ -18,12 +19,16 @@ app = FastAPI(title="Almagest Reviewer")
 github_client = GitHubClient()
 pr_collector = PRDataCollector(github_client)
 
-# API 라우터 등록
-app.include_router(stats.router, prefix="/api")
-app.include_router(repositories.router, prefix="/api")
-app.include_router(pull_requests.router, prefix="/api")
-app.include_router(reviews.router, prefix="/api")
-app.include_router(skills.router, prefix="/api")
+# 인증 라우터 (보호 없음 — 로그인 자체는 인증 불필요)
+app.include_router(auth.router, prefix="/api")
+
+# 보호된 API 라우터
+_auth_dep = [Depends(get_current_user)]
+app.include_router(stats.router, prefix="/api", dependencies=_auth_dep)
+app.include_router(repositories.router, prefix="/api", dependencies=_auth_dep)
+app.include_router(pull_requests.router, prefix="/api", dependencies=_auth_dep)
+app.include_router(reviews.router, prefix="/api", dependencies=_auth_dep)
+app.include_router(skills.router, prefix="/api", dependencies=_auth_dep)
 
 # 프론트엔드 정적 파일 서빙
 _FRONTEND_DIST = Path(__file__).parent / "frontend" / "dist"
