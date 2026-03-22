@@ -126,6 +126,111 @@ docker run -d -p 8000:8000 --env-file .env almagest-reviewer
 3. **Pull Request 생성**: 해당 레포지토리에서 PR을 생성하거나 코드를 업데이트합니다.
 4. **자동 리뷰 확인**: `almagest-reviewer`가 자동으로 PR을 분석하고 리뷰 코멘트를 남깁니다.
 
+---
+
+## 외부 레포지토리 연동 가이드
+
+`almagest-reviewer`는 **GitHub App 기반**으로 동작하기 때문에, 새로운 레포지토리를 연동하기 위해 서버 코드를 수정하거나 재배포할 필요가 없습니다.
+GitHub App 설치만으로 연동이 완료되며, 이후 레포지토리 정보는 DB에 자동으로 등록됩니다.
+
+### 동작 원리
+
+기존에는 `GITHUB_INSTALLATION_ID` 환경변수에 하나의 레포지토리를 고정해두는 방식이었습니다.
+현재는 GitHub 웹훅 payload에서 `installation_id`를 동적으로 추출하므로, **앱이 설치된 모든 레포지토리**에서 자동으로 리뷰가 동작합니다.
+
+PR이 열리거나 업데이트될 때 GitHub가 전송하는 웹훅 payload에는 아래 정보가 포함됩니다.
+
+```json
+{
+  "installation": { "id": 123456 },
+  "repository": {
+    "id": 987654,
+    "name": "my-repo",
+    "owner": { "login": "my-org" }
+  },
+  "pull_request": { ... }
+}
+```
+
+서버는 이 값들을 그대로 추출해 `repositories` 테이블에 upsert합니다. 이미 등록된 레포지토리라면 `installation_id`만 갱신되고, 처음 보는 레포지토리라면 새 row가 생성됩니다.
+
+```
+GitHub PR 이벤트 발생
+       ↓
+웹훅 payload에서 installation_id, repo 정보 추출
+       ↓
+repositories 테이블 upsert (신규 등록 또는 갱신)
+       ↓
+LangGraph 리뷰 워크플로우 실행
+       ↓
+GitHub PR에 리뷰 코멘트 게시
+```
+
+### 연동 절차
+
+#### Step 1. GitHub App 추가 설치
+
+GitHub App의 설치 범위를 확장하는 방법은 두 가지입니다.
+
+**방법 A — 특정 레포지토리에 추가 설치 (권장)**
+
+1. GitHub → `Settings` → `Applications` → `almagest-reviewer` 옆 `Configure` 클릭
+2. `Repository access` 섹션에서 `Only select repositories` 선택
+3. 연동하려는 레포지토리를 검색하여 추가
+4. `Save` 클릭
+
+**방법 B — 조직(org)의 모든 레포지토리에 설치**
+
+1. 조직 페이지 → `Settings` → `GitHub Apps` → `almagest-reviewer` → `Configure`
+2. `Repository access`를 `All repositories`로 변경
+3. `Save` 클릭
+
+> 이 설정은 GitHub App을 **처음 생성한 계정**이나 **조직 Admin**만 변경할 수 있습니다.
+
+#### Step 2. Webhook 이벤트 권한 확인
+
+GitHub App이 `Pull requests` 이벤트를 수신하도록 설정되어 있어야 합니다.
+
+1. GitHub App 관리 페이지 → `Permissions & events`
+2. `Subscribe to events` 섹션에서 `Pull request` 체크 확인
+3. `Repository permissions`에서 `Pull requests: Read & write` 확인
+
+이미 설정되어 있다면 별도 작업 불필요합니다.
+
+#### Step 3. 자동 등록 확인
+
+설치가 완료된 레포지토리에서 **PR을 하나 열면** 서버가 웹훅을 수신하고, `repositories` 테이블에 해당 레포지토리가 자동으로 등록됩니다.
+
+등록 여부를 직접 확인하려면 아래 쿼리를 사용하세요.
+
+```bash
+docker exec -it almagest-reviewer-db-1 psql -U almagest -d almagest_reviewer \
+  -c "SELECT id, owner, name, installation_id, is_active, created_at FROM repositories ORDER BY created_at DESC;"
+```
+
+### 특정 레포지토리 리뷰 비활성화
+
+연동은 유지하되 리뷰를 일시 중단하고 싶은 경우, `is_active` 컬럼을 `false`로 변경합니다.
+
+```sql
+UPDATE repositories
+SET is_active = false
+WHERE owner = 'my-org' AND name = 'my-repo';
+```
+
+> 현재 서버 코드는 `is_active` 값을 확인하지 않습니다. 이 기능은 향후 구현 예정이며, 현재는 DB 레벨에서 상태를 기록하는 용도로만 사용됩니다.
+
+### 연동 해제
+
+특정 레포지토리에 더 이상 리뷰가 필요 없다면:
+
+1. **GitHub App 설치 해제**: GitHub App 설정 페이지에서 해당 레포지토리를 제거합니다. 이후 해당 레포지토리의 웹훅은 더 이상 서버로 전달되지 않습니다.
+2. **(선택) DB 데이터 삭제**: 쌓인 리뷰 데이터까지 삭제하려면 아래 쿼리를 실행합니다. `CASCADE` 설정으로 하위 테이블(`pull_requests`, `reviews`, `review_comments`, `skills`) 데이터도 함께 삭제됩니다.
+
+```sql
+DELETE FROM repositories
+WHERE owner = 'my-org' AND name = 'my-repo';
+```
 
 ---
 
@@ -176,6 +281,33 @@ sequenceDiagram
 2. **Risk Classification**: 변경 규모와 중요도를 바탕으로 위험도(LOW / MEDIUM / HIGH)를 평가합니다. LOW로 판단되면 파일 리뷰를 건너뛰고 바로 요약 단계로 이동합니다.
 3. **File Review (병렬)**: MEDIUM/HIGH 위험도의 PR에 대해 변경된 모든 파일을 동시에 리뷰합니다. 코드 품질, 보안, 성능, 가독성 등을 검토합니다.
 4. **Review Summary**: 모든 분석 결과를 종합하여 최종 의견(APPROVE / REQUEST_CHANGES / COMMENT)과 요약문을 작성합니다. 리뷰가 불충분하다고 판단되면 파일 리뷰를 최대 2회까지 재실행합니다.
+
+---
+
+## Database Schema
+
+PostgreSQL 기반의 데이터 레이어로 구성되며, 테이블 간 계층 구조는 다음과 같습니다.
+
+```
+repositories
+├── skills            (저장소별 리뷰 스킬 설정)
+└── pull_requests     (저장소의 PR들)
+    └── reviews       (PR별 AI 리뷰 스냅샷)
+        └── review_comments  (리뷰 내 개별 코멘트)
+```
+
+모든 부모-자식 관계는 `CASCADE` 삭제가 적용됩니다.
+
+### 테이블 역할
+
+| 테이블 | 역할 |
+|--------|------|
+| `repositories` | GitHub App이 설치된 저장소 등록 정보. `owner`, `name`, `installation_id`로 저장소를 식별하고 리뷰 활성화 여부(`is_active`)를 관리하는 최상위 엔티티 |
+| `pull_requests` | 저장소에 열린 PR 메타정보. `state`, `risk_level`, `triage_priority`를 통해 리뷰 우선순위와 상태를 추적 |
+| `reviews` | 특정 커밋(`head_sha`) 기준으로 수행된 AI 리뷰 결과 스냅샷. `pr_intent`, `risk_assessment`, `file_reviews`를 JSONB로 저장하고 `review_decision`(APPROVE/REQUEST_CHANGES/COMMENT)을 기록 |
+| `review_comments` | 리뷰 내 파일별 개별 코멘트. `comment_type`(issue/suggestion)과 `is_addressed`를 통해 팔로업 처리 여부를 추적 |
+| `skills` | 저장소별 리뷰 기준 커스터마이징 설정. `criteria` JSONB 필드에 `focus_areas`, `ignore_patterns` 등 세부 리뷰 기준을 저장 |
+| `alembic_version` | Alembic 마이그레이션 버전 추적용 시스템 테이블 |
 
 ---
 
