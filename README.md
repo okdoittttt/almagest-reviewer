@@ -86,35 +86,41 @@ cp .env.example .env
 - `GITHUB_APP_ID`: 생성한 GitHub App의 ID
 - `GITHUB_PRIVATE_KEY_PATH`: 다운로드한 `.pem` 키 파일 경로
 - `GITHUB_WEBHOOK_SECRET`: GitHub App 설정에서 지정한 Webhook Secret
-- `GITHUB_INSTALLATION_ID`: 앱이 설치된 레포지토리의 Installation ID
 - `LLM_PROVIDER`: `anthropic`, `google`, `ollama` 중 하나
 - `ANTHROPIC_API_KEY` 또는 `GOOGLE_API_KEY` (provider에 맞게 설정)
 - `OLLAMA_BASE_URL`: Ollama 사용 시 서버 주소 (기본값: `http://localhost:11434`)
 - `OLLAMA_MODEL`: Ollama 사용 시 모델 이름 (기본값: `llama3.2`)
 
+> `DATABASE_URL`은 Docker Compose 환경에서 자동으로 설정됩니다. 로컬 실행 시에는 `.env`에서 직접 지정하세요.
+
 ### 3. Running the Server
 
-#### Option A: Local Execution
-```bash
-# 가상환경 활성화 (필요 시)
-source .venv/bin/activate
+#### Option A: Docker Compose (Recommended)
 
-# 서버 실행 (uvicorn)
-uvicorn main:app --host 0.0.0.0 --port 8000
-```
+앱 서버와 PostgreSQL DB를 함께 실행합니다. DB가 완전히 준비된 후 앱이 시작되며, Alembic 마이그레이션도 자동으로 수행됩니다.
 
-#### Option B: Docker Execution (Recommended)
-Docker를 사용하면 일관된 환경에서 서버를 실행할 수 있습니다.
-
-**Docker Compose 사용:**
 ```bash
 docker compose up -d --build
 ```
 
-**Docker CLI 전용:**
+로그 확인:
 ```bash
-docker build -t almagest-reviewer .
-docker run -d -p 8000:8000 --env-file .env almagest-reviewer
+docker compose logs -f app
+```
+
+#### Option B: Local Execution
+
+PostgreSQL이 별도로 실행 중인 상태에서 `.env`의 `DATABASE_URL`을 `localhost`로 지정한 뒤 실행합니다.
+
+```bash
+# 가상환경 활성화
+source .venv/bin/activate
+
+# DB 마이그레이션
+alembic upgrade head
+
+# 서버 실행
+uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
 ---
@@ -390,7 +396,7 @@ repositories
 ### 핵심 기능 확장 (진행 예정)
 
 - [ ] **Skills**: 사용자/레포지토리별 PR 리뷰 기준 커스터마이징. 팀마다 다른 컨벤션, 중점 검토 항목, 리뷰 스타일을 에이전트 스킬 형태로 정의하고 조합할 수 있는 구조로 확장
-- [ ] **Multi-repo Support**: 여러 레포지토리에 앱을 설치하고, 레포별 설정을 독립적으로 관리. 멀티테넌시 구조로의 전환 및 DB 도입
+- [x] **Multi-repo Support**: 여러 레포지토리에 앱을 설치하고, 레포별 설정을 독립적으로 관리. `repositories` 테이블 기반 멀티테넌시 구조 및 PostgreSQL DB 도입 완료
 - [ ] **PR Triage**: 여러 PR이 동시에 열려있을 때 어떤 PR을 먼저 검토해야 하는지 우선순위를 자동 판단 (위험도, 변경 규모, 대기 시간 등 종합)
 - [ ] **Follow-up**: 리뷰 코멘트가 반영됐는지 추적하고, 수정 후 재검토 수행. 새로운 문제가 도입됐는지도 함께 확인
 
