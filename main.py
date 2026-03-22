@@ -1,24 +1,40 @@
 import json
+from pathlib import Path
 
 from fastapi import Depends, FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.github import GitHubClient, PRDataCollector
 from app.reviewer import run_review
+from app.routers import pull_requests, repositories, reviews, skills, stats
 from app.services.review_service import persist_review_result
 from app.webhook import verify_webhook_signature
 
-app = FastAPI()
+app = FastAPI(title="Almagest Reviewer")
 github_client = GitHubClient()
 pr_collector = PRDataCollector(github_client)
 
-@app.get("/")
+# API 라우터 등록
+app.include_router(stats.router, prefix="/api")
+app.include_router(repositories.router, prefix="/api")
+app.include_router(pull_requests.router, prefix="/api")
+app.include_router(reviews.router, prefix="/api")
+app.include_router(skills.router, prefix="/api")
+
+# 프론트엔드 정적 파일 서빙
+_FRONTEND_DIST = Path(__file__).parent / "frontend" / "dist"
+if _FRONTEND_DIST.exists():
+    app.mount("/assets", StaticFiles(directory=_FRONTEND_DIST / "assets"), name="assets")
+
+
+@app.get("/health")
 async def health_check():
-    """Health check endpoint"""
     return {"status": "ok", "service": "almagest-reviewer"}
+
 
 @app.post("/webhook")
 async def github_webhook(request: Request, session: AsyncSession = Depends(get_db)):
@@ -92,3 +108,12 @@ async def github_webhook(request: Request, session: AsyncSession = Depends(get_d
         )
 
     return JSONResponse({"status": "success"})
+
+
+# SPA catch-all: /api/* 와 /webhook, /health 를 제외한 모든 경로를 index.html 로 서빙
+@app.get("/{full_path:path}")
+async def serve_spa(full_path: str):
+    index = _FRONTEND_DIST / "index.html"
+    if index.exists():
+        return FileResponse(index)
+    return JSONResponse({"status": "ok", "service": "almagest-reviewer"})
