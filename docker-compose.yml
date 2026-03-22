@@ -1,0 +1,38 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: almagest
+      POSTGRES_PASSWORD: almagest
+      POSTGRES_DB: almagest_reviewer
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U almagest -d almagest_reviewer"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      # DB 호스트는 Docker 네트워크 내 서비스명 'db'를 사용
+      DATABASE_URL: postgresql+asyncpg://almagest:almagest@db:5432/almagest_reviewer
+      # pem 파일을 고정 경로로 마운트하므로 경로 override
+      GITHUB_PRIVATE_KEY_PATH: ./private-key.pem
+    volumes:
+      # pem 파일을 컨테이너 내 고정 경로에 마운트 (읽기 전용)
+      - ${GITHUB_PRIVATE_KEY_PATH}:/app/private-key.pem:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
