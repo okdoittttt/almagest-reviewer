@@ -10,7 +10,33 @@ import type {
   Stats,
 } from './types'
 
+const TOKEN_KEY = 'almagest_token'
+
 const api = axios.create({ baseURL: '/api' })
+
+// 요청 인터셉터 — JWT를 Authorization 헤더에 자동 주입
+api.interceptors.request.use(config => {
+  const token = localStorage.getItem(TOKEN_KEY)
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
+
+// 응답 인터셉터 — 401 시 토큰 삭제 후 로그인 페이지로 이동
+api.interceptors.response.use(
+  r => r,
+  err => {
+    if (err.response?.status === 401 && window.location.pathname !== '/login') {
+      localStorage.removeItem(TOKEN_KEY)
+      window.location.href = '/login'
+    }
+    return Promise.reject(err)
+  }
+)
+
+// Auth
+export const getMe = () => api.get<{ login: string }>('/auth/me').then(r => r.data)
 
 // Stats
 export const getStats = () => api.get<Stats>('/stats').then(r => r.data)
