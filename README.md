@@ -141,6 +141,7 @@ GitHub App 설치만으로 연동이 완료되며, 이후 레포지토리 정보
 PR이 열리거나 업데이트될 때 GitHub가 전송하는 웹훅 payload에는 아래 정보가 포함됩니다.
 
 ```json
+
 {
   "installation": { "id": 123456 },
   "repository": {
