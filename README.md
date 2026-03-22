@@ -234,6 +234,70 @@ WHERE owner = 'my-org' AND name = 'my-repo';
 
 ---
 
+## 직접 배포 가이드 (Self-hosted)
+
+코드를 fork하여 자신만의 서버를 운영하고 싶은 경우의 절차입니다.
+자신의 LLM API Key와 인프라를 사용하며, 완전한 독립 환경을 구성할 수 있습니다.
+
+### Step 1. 레포지토리 Fork
+
+GitHub에서 이 레포지토리를 fork합니다.
+
+### Step 2. GitHub App 신규 등록
+
+기존 앱을 공유하지 않고, **본인 계정에 새로운 GitHub App을 직접 생성**해야 합니다.
+
+1. GitHub → `Settings` → `Developer settings` → `GitHub Apps` → `New GitHub App`
+2. 아래 항목을 설정합니다:
+
+| 항목 | 값 |
+|---|---|
+| **GitHub App name** | 원하는 앱 이름 |
+| **Webhook URL** | 배포할 서버 주소 (`https://your-domain.com/webhook`) |
+| **Webhook secret** | 임의의 비밀 문자열 (`.env`의 `GITHUB_WEBHOOK_SECRET`과 동일하게) |
+| **Repository permissions** | Pull requests: `Read & write` |
+| **Subscribe to events** | `Pull request` 체크 |
+
+3. 앱 생성 후 `App ID`를 복사해둡니다.
+4. `Private keys` 섹션에서 `Generate a private key`를 클릭해 `.pem` 파일을 다운로드합니다.
+
+### Step 3. 환경변수 설정
+
+`.env.example`을 복사하고 생성한 GitHub App 정보로 채웁니다.
+
+```bash
+cp .env.example .env
+```
+
+```env
+GITHUB_APP_ID=<생성한 App ID>
+GITHUB_PRIVATE_KEY_PATH=./your-app.pem
+GITHUB_WEBHOOK_SECRET=<Step 2에서 설정한 Webhook secret>
+```
+
+### Step 4. 서버 배포
+
+로컬 또는 클라우드 환경에 서버를 배포합니다. Docker Compose 사용을 권장합니다.
+
+```bash
+docker compose up -d --build
+```
+
+외부에서 접근 가능한 URL이 없는 경우 [ngrok](https://ngrok.com) 등으로 터널링할 수 있습니다.
+
+```bash
+ngrok http 8000
+```
+
+### Step 5. GitHub App 설치
+
+1. 생성한 GitHub App 페이지 → `Install App`
+2. 리뷰를 받을 레포지토리를 선택하여 설치
+
+설치 후 해당 레포지토리에서 PR을 열면 자동으로 리뷰가 동작합니다.
+
+---
+
 ## Architecture Deep Dive
 
 ### LangGraph Workflow
