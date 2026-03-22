@@ -2,7 +2,7 @@
 from urllib.parse import urlencode
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.responses import RedirectResponse
 
 from app.auth.user_jwt import create_user_token
@@ -14,6 +14,9 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 _GITHUB_AUTHORIZE_URL = "https://github.com/login/oauth/authorize"
 _GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token"
 _GITHUB_USER_URL = "https://api.github.com/user"
+
+_COOKIE_NAME = "almagest_token"
+_COOKIE_MAX_AGE = settings.jwt_expire_hours * 3600
 
 
 @router.get("/login")
@@ -33,9 +36,9 @@ async def login() -> RedirectResponse:
 
 @router.get("/callback")
 async def callback(code: str) -> RedirectResponse:
-    """GitHub OAuth 콜백 — 코드를 JWT로 교환 후 프론트로 리다이렉트합니다."""
+    """GitHub OAuth 콜백 — 코드를 httpOnly 쿠키로 교환 후 프론트로 리다이렉트합니다."""
     async with httpx.AsyncClient() as client:
-        # 1. code → access_token 교환
+        # 1. code → access_token 교환 (서버 간 통신, client_secret 클라이언트에 미노출)
         token_res = await client.post(
             _GITHUB_TOKEN_URL,
             json={
@@ -69,9 +72,19 @@ async def callback(code: str) -> RedirectResponse:
             detail=f"'{github_login}' 계정은 접근 권한이 없습니다.",
         )
 
-    # 4. JWT 발급 후 프론트엔드로 리다이렉트
+    # 4. JWT를 httpOnly 쿠키에 저장 후 대시보드로 리다이렉트
+    #    URL에 토큰을 노출하지 않으므로 브라우저 히스토리/로그에 남지 않음
     jwt_token = create_user_token(github_login)
-    return RedirectResponse(f"/?token={jwt_token}")
+    response = RedirectResponse("/", status_code=302)
+    response.set_cookie(
+        key=_COOKIE_NAME,
+        value=jwt_token,
+        httponly=True,    # JS에서 접근 불가 (XSS 방어)
+        samesite="lax",   # CSRF 방어
+        max_age=_COOKIE_MAX_AGE,
+        path="/",
+    )
+    return response
 
 
 @router.get("/me")
@@ -81,6 +94,7 @@ async def me(current_user: dict = Depends(get_current_user)) -> dict:
 
 
 @router.post("/logout")
-async def logout() -> dict:
-    """로그아웃 — 클라이언트 측 토큰 삭제를 안내합니다."""
+async def logout(response: Response) -> dict:
+    """로그아웃 — httpOnly 쿠키를 삭제합니다."""
+    response.delete_cookie(key=_COOKIE_NAME, path="/")
     return {"detail": "로그아웃 되었습니다."}

@@ -3,13 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 export function Login() {
-  const { token } = useAuth()
+  const { user } = useAuth()
   const navigate = useNavigate()
 
   // 이미 로그인된 경우 대시보드로 이동
   useEffect(() => {
-    if (token) navigate('/', { replace: true })
-  }, [token, navigate])
+    if (user) navigate('/', { replace: true })
+  }, [user, navigate])
 
   const handleLogin = () => {
     window.location.href = '/api/auth/login'

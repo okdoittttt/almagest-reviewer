@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 const navItems = [
@@ -10,6 +10,7 @@ const navItems = [
 export function Layout({ children }: { children: React.ReactNode }) {
   const { pathname } = useLocation()
   const { user, logout } = useAuth()
+  const navigate = useNavigate()
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -46,7 +47,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               {user.login}
             </a>
             <button
-              onClick={logout}
+              onClick={() => logout().then(() => navigate('/login', { replace: true }))}
               className="text-xs text-gray-400 hover:text-gray-700 px-2 py-1 rounded border border-gray-200 hover:border-gray-400 transition-colors"
             >
               로그아웃

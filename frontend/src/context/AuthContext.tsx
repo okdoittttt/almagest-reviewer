@@ -1,61 +1,37 @@
 import { createContext, useContext, useEffect, useState } from 'react'
-import { getMe } from '../api/client'
-
-const TOKEN_KEY = 'almagest_token'
+import axios from 'axios'
 
 interface AuthState {
-  token: string | null
   user: { login: string } | null
   loading: boolean
-  logout: () => void
+  logout: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthState>({
-  token: null,
   user: null,
   loading: true,
-  logout: () => {},
+  logout: async () => {},
 })
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem(TOKEN_KEY))
   const [user, setUser] = useState<{ login: string } | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const logout = () => {
-    localStorage.removeItem(TOKEN_KEY)
-    setToken(null)
+  useEffect(() => {
+    // httpOnly 쿠키가 있으면 브라우저가 자동 전송 — /me 응답으로 로그인 여부 확인
+    axios.get<{ login: string }>('/api/auth/me', { withCredentials: true })
+      .then(r => setUser(r.data))
+      .catch(() => setUser(null))
+      .finally(() => setLoading(false))
+  }, [])
+
+  const logout = async () => {
+    await axios.post('/api/auth/logout', null, { withCredentials: true })
     setUser(null)
   }
 
-  useEffect(() => {
-    if (!token) {
-      setLoading(false)
-      return
-    }
-    getMe()
-      .then(u => setUser(u))
-      .catch(() => {
-        // 토큰이 만료되었거나 유효하지 않으면 로그아웃
-        logout()
-      })
-      .finally(() => setLoading(false))
-  }, [token])
-
-  // URL에서 ?token= 파라미터를 읽어 저장 (OAuth 콜백 후)
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const t = params.get('token')
-    if (t) {
-      localStorage.setItem(TOKEN_KEY, t)
-      setToken(t)
-      // URL에서 token 파라미터 제거
-      window.history.replaceState({}, '', window.location.pathname)
-    }
-  }, [])
-
   return (
-    <AuthContext.Provider value={{ token, user, loading, logout }}>
+    <AuthContext.Provider value={{ user, loading, logout }}>
       {children}
     </AuthContext.Provider>
   )
