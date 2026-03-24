@@ -4,12 +4,12 @@ interface BadgeProps {
 }
 
 const variantClasses: Record<string, string> = {
-  green: 'bg-green-100 text-green-800',
-  yellow: 'bg-yellow-100 text-yellow-800',
-  red: 'bg-red-100 text-red-800',
-  blue: 'bg-blue-100 text-blue-800',
-  gray: 'bg-gray-100 text-gray-700',
-  purple: 'bg-purple-100 text-purple-800',
+  green:  'bg-green-950/60 text-success ring-1 ring-green-900/80',
+  yellow: 'bg-yellow-950/60 text-warning ring-1 ring-yellow-900/80',
+  red:    'bg-red-950/60 text-danger ring-1 ring-red-900/80',
+  blue:   'bg-blue-950/60 text-accent ring-1 ring-blue-900/80',
+  gray:   'bg-surface2 text-secondary',
+  purple: 'bg-purple-950/60 text-purple-400 ring-1 ring-purple-900/80',
 }
 
 export function Badge({ label, variant = 'gray' }: BadgeProps) {
