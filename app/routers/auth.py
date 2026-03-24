@@ -30,6 +30,7 @@ async def login() -> RedirectResponse:
     params = urlencode({
         "client_id": settings.github_client_id,
         "scope": "read:user",
+        "redirect_uri": f"{settings.app_base_url}/api/auth/callback",
     })
     return RedirectResponse(f"{_GITHUB_AUTHORIZE_URL}?{params}")
 

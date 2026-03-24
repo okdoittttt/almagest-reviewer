@@ -10,6 +10,14 @@ const EMPTY_FORM: SkillCreate = {
   is_enabled: true,
 }
 
+const inputClass = [
+  'w-full rounded-lg px-3 py-2 text-sm text-primary',
+  'bg-surface2 border border-white/[0.07]',
+  'placeholder:text-muted',
+  'focus:outline-none focus:border-accent/50 focus:ring-0',
+  'transition-colors duration-150',
+].join(' ')
+
 export function Skills() {
   const { repoId } = useParams()
   const [skills, setSkills] = useState<Skill[]>([])
@@ -96,30 +104,33 @@ export function Skills() {
     setForm(f => ({ ...f, criteria: { ...f.criteria, ignore_patterns: patterns } }))
   }
 
-  if (loading) return <div className="text-gray-400 mt-10 text-center">불러오는 중...</div>
+  if (loading) return <div className="text-secondary mt-10 text-center">불러오는 중...</div>
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2 text-sm text-gray-500">
-        <Link to="/repositories" className="hover:text-indigo-600">Repositories</Link>
+      <div className="flex items-center gap-2 text-sm text-muted">
+        <Link to="/repositories" className="hover:text-accent transition-colors">Repositories</Link>
         <span>/</span>
-        <span>Skills</span>
+        <span className="text-secondary">Skills</span>
       </div>
 
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">스킬 관리</h1>
+        <h1 className="text-2xl font-bold text-primary">스킬 관리</h1>
         <button
           onClick={openCreate}
-          className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"
+          className="px-4 py-2 text-sm font-medium rounded-lg transition-all duration-150 text-white"
+          style={{ background: '#2997ff' }}
+          onMouseOver={e => (e.currentTarget.style.background = '#1a7fd4')}
+          onMouseOut={e => (e.currentTarget.style.background = '#2997ff')}
         >
           + 새 스킬 추가
         </button>
       </div>
 
       {skills.length === 0 ? (
-        <div className="bg-white rounded-xl border border-gray-200 p-10 text-center text-gray-400">
-          <p>등록된 스킬이 없습니다.</p>
-          <p className="text-sm mt-2">스킬을 추가하면 AI 리뷰 시 해당 기준이 적용됩니다.</p>
+        <div className="bg-surface rounded-xl border border-white/[0.07] p-10 text-center">
+          <p className="text-secondary">등록된 스킬이 없습니다.</p>
+          <p className="text-sm text-muted mt-2">스킬을 추가하면 AI 리뷰 시 해당 기준이 적용됩니다.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -127,18 +138,18 @@ export function Skills() {
             const focusAreas = (skill.criteria?.focus_areas as string[]) ?? []
             const ignorePatterns = (skill.criteria?.ignore_patterns as string[]) ?? []
             return (
-              <div key={skill.id} className="bg-white rounded-xl border border-gray-200 p-5 space-y-3">
+              <div key={skill.id} className="bg-surface rounded-xl border border-white/[0.07] p-5 space-y-3 hover:border-white/[0.15] transition-all duration-150">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h2 className="font-semibold text-gray-900">{skill.name}</h2>
-                    {skill.description && <p className="text-sm text-gray-500 mt-0.5">{skill.description}</p>}
+                    <h2 className="font-semibold text-primary">{skill.name}</h2>
+                    {skill.description && <p className="text-sm text-secondary mt-0.5">{skill.description}</p>}
                   </div>
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <span className="text-xs text-gray-500">{skill.is_enabled ? '활성' : '비활성'}</span>
+                    <span className="text-xs text-muted">{skill.is_enabled ? '활성' : '비활성'}</span>
                     <div
                       onClick={() => handleToggle(skill)}
                       className={`w-10 h-5 rounded-full transition-colors cursor-pointer ${
-                        skill.is_enabled ? 'bg-indigo-500' : 'bg-gray-300'
+                        skill.is_enabled ? 'bg-accent' : 'bg-surface2'
                       }`}
                     >
                       <div
@@ -152,35 +163,35 @@ export function Skills() {
 
                 {focusAreas.length > 0 && (
                   <div>
-                    <p className="text-xs text-gray-400 mb-1">Focus Areas</p>
+                    <p className="text-xs text-muted mb-1.5">Focus Areas</p>
                     <div className="flex flex-wrap gap-1">
                       {focusAreas.map((a, i) => (
-                        <span key={i} className="px-2 py-0.5 bg-blue-50 text-blue-700 text-xs rounded">{a}</span>
+                        <span key={i} className="px-2 py-0.5 bg-blue-950/60 text-accent text-xs rounded ring-1 ring-blue-900/80">{a}</span>
                       ))}
                     </div>
                   </div>
                 )}
                 {ignorePatterns.length > 0 && (
                   <div>
-                    <p className="text-xs text-gray-400 mb-1">Ignore Patterns</p>
+                    <p className="text-xs text-muted mb-1.5">Ignore Patterns</p>
                     <div className="flex flex-wrap gap-1">
                       {ignorePatterns.map((p, i) => (
-                        <span key={i} className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded font-mono">{p}</span>
+                        <span key={i} className="px-2 py-0.5 bg-surface2 text-secondary text-xs rounded font-mono">{p}</span>
                       ))}
                     </div>
                   </div>
                 )}
 
-                <div className="flex gap-2 pt-2 border-t border-gray-100">
+                <div className="flex gap-2 pt-3 border-t border-white/[0.06]">
                   <button
                     onClick={() => openEdit(skill)}
-                    className="flex-1 text-xs text-indigo-600 hover:bg-indigo-50 py-1.5 rounded border border-indigo-200 transition-colors"
+                    className="flex-1 text-xs text-accent hover:bg-accent/10 py-1.5 rounded-lg border border-accent/30 hover:border-accent/50 transition-all duration-150"
                   >
                     편집
                   </button>
                   <button
                     onClick={() => handleDelete(skill)}
-                    className="flex-1 text-xs text-red-500 hover:bg-red-50 py-1.5 rounded border border-red-200 transition-colors"
+                    className="flex-1 text-xs text-danger/80 hover:bg-danger/10 py-1.5 rounded-lg border border-danger/20 hover:border-danger/40 transition-all duration-150"
                   >
                     삭제
                   </button>
@@ -193,24 +204,27 @@ export function Skills() {
 
       {/* 스킬 추가/편집 모달 */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 p-6 space-y-4">
-            <h2 className="text-lg font-bold text-gray-900">{editingId ? '스킬 편집' : '새 스킬 추가'}</h2>
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur-sm">
+          <div
+            className="rounded-2xl border border-white/[0.08] w-full max-w-lg mx-4 p-6 space-y-4"
+            style={{ background: 'rgba(24, 24, 27, 0.95)' }}
+          >
+            <h2 className="text-lg font-bold text-primary">{editingId ? '스킬 편집' : '새 스킬 추가'}</h2>
 
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div>
-                <label className="text-sm font-medium text-gray-700">스킬 이름 *</label>
+                <label className="text-xs font-medium text-secondary uppercase tracking-wider">스킬 이름 *</label>
                 <input
-                  className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  className={`mt-1.5 ${inputClass}`}
                   value={form.name}
                   onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                   placeholder="예: Security Review"
                 />
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-700">설명</label>
+                <label className="text-xs font-medium text-secondary uppercase tracking-wider">설명</label>
                 <textarea
-                  className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none"
+                  className={`mt-1.5 ${inputClass} resize-none`}
                   rows={2}
                   value={form.description ?? ''}
                   onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
@@ -220,22 +234,27 @@ export function Skills() {
 
               {/* Focus Areas */}
               <div>
-                <label className="text-sm font-medium text-gray-700">Focus Areas</label>
-                <div className="flex gap-2 mt-1">
+                <label className="text-xs font-medium text-secondary uppercase tracking-wider">Focus Areas</label>
+                <div className="flex gap-2 mt-1.5">
                   <input
-                    className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    className={`flex-1 ${inputClass}`}
                     value={focusArea}
                     onChange={e => setFocusArea(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && addFocusArea()}
                     placeholder="예: security vulnerabilities"
                   />
-                  <button onClick={addFocusArea} className="px-3 py-1.5 bg-indigo-100 text-indigo-700 text-sm rounded-lg hover:bg-indigo-200">추가</button>
+                  <button
+                    onClick={addFocusArea}
+                    className="px-3 py-1.5 bg-accent/10 text-accent text-sm rounded-lg border border-accent/30 hover:bg-accent/20 transition-colors"
+                  >
+                    추가
+                  </button>
                 </div>
-                <div className="flex flex-wrap gap-1 mt-1">
+                <div className="flex flex-wrap gap-1 mt-2">
                   {((form.criteria?.focus_areas as string[]) ?? []).map((a, i) => (
-                    <span key={i} className="flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 text-xs rounded">
+                    <span key={i} className="flex items-center gap-1 px-2 py-0.5 bg-blue-950/60 text-accent text-xs rounded ring-1 ring-blue-900/80">
                       {a}
-                      <button onClick={() => removeFocusArea(i)} className="text-blue-400 hover:text-blue-700">×</button>
+                      <button onClick={() => removeFocusArea(i)} className="text-accent/60 hover:text-accent">×</button>
                     </span>
                   ))}
                 </div>
@@ -243,47 +262,56 @@ export function Skills() {
 
               {/* Ignore Patterns */}
               <div>
-                <label className="text-sm font-medium text-gray-700">Ignore Patterns</label>
-                <div className="flex gap-2 mt-1">
+                <label className="text-xs font-medium text-secondary uppercase tracking-wider">Ignore Patterns</label>
+                <div className="flex gap-2 mt-1.5">
                   <input
-                    className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    className={`flex-1 ${inputClass} font-mono`}
                     value={ignorePattern}
                     onChange={e => setIgnorePattern(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && addIgnorePattern()}
                     placeholder="예: *.test.ts"
                   />
-                  <button onClick={addIgnorePattern} className="px-3 py-1.5 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200">추가</button>
+                  <button
+                    onClick={addIgnorePattern}
+                    className="px-3 py-1.5 bg-surface2 text-secondary text-sm rounded-lg border border-white/[0.07] hover:border-white/20 hover:text-primary transition-all"
+                  >
+                    추가
+                  </button>
                 </div>
-                <div className="flex flex-wrap gap-1 mt-1">
+                <div className="flex flex-wrap gap-1 mt-2">
                   {((form.criteria?.ignore_patterns as string[]) ?? []).map((p, i) => (
-                    <span key={i} className="flex items-center gap-1 px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded font-mono">
+                    <span key={i} className="flex items-center gap-1 px-2 py-0.5 bg-surface2 text-secondary text-xs rounded font-mono">
                       {p}
-                      <button onClick={() => removeIgnorePattern(i)} className="text-gray-400 hover:text-gray-700">×</button>
+                      <button onClick={() => removeIgnorePattern(i)} className="text-muted hover:text-secondary">×</button>
                     </span>
                   ))}
                 </div>
               </div>
 
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label className="flex items-center gap-2.5 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={form.is_enabled}
                   onChange={e => setForm(f => ({ ...f, is_enabled: e.target.checked }))}
+                  className="accent-accent"
                 />
-                <span className="text-sm text-gray-700">활성화</span>
+                <span className="text-sm text-secondary">활성화</span>
               </label>
             </div>
 
             <div className="flex gap-2 pt-2">
               <button
                 onClick={() => setShowModal(false)}
-                className="flex-1 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50"
+                className="flex-1 py-2 border border-white/[0.07] rounded-lg text-sm text-secondary hover:text-primary hover:border-white/20 transition-all"
               >
                 취소
               </button>
               <button
                 onClick={handleSubmit}
-                className="flex-1 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700"
+                className="flex-1 py-2 rounded-lg text-sm font-medium text-white transition-all"
+                style={{ background: '#2997ff' }}
+                onMouseOver={e => (e.currentTarget.style.background = '#1a7fd4')}
+                onMouseOut={e => (e.currentTarget.style.background = '#2997ff')}
               >
                 {editingId ? '저장' : '추가'}
               </button>
