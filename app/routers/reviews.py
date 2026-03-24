@@ -52,4 +52,5 @@ async def update_comment_addressed(
     comment.is_addressed = body.is_addressed
     comment.addressed_at = datetime.now(timezone.utc) if body.is_addressed else None
     await session.flush()
+    await session.refresh(comment)
     return ReviewCommentOut.model_validate(comment)
