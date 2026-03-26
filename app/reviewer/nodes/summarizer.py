@@ -27,6 +27,7 @@ async def summarize_review(state: ReviewState) -> dict:
     pr_intent = state.get("pr_intent", {})
     risk_assessment = state.get("risk_assessment", {})
     file_reviews = state.get("file_reviews", [])
+    repo_skills = state.get("repo_skills", [])
 
     logger.info(f"총 {len(file_reviews)}개 파일 리뷰 결과를 종합 중...")
 
@@ -35,7 +36,7 @@ async def summarize_review(state: ReviewState) -> dict:
         llm = get_llm(temperature=0.1)  # 약간의 창의성 허용
 
         # 프롬프트 생성
-        prompt = create_summary_prompt(pr_data, pr_intent, risk_assessment, file_reviews)
+        prompt = create_summary_prompt(pr_data, pr_intent, risk_assessment, file_reviews, repo_skills)
 
         # LLM 호출
         response = await llm.ainvoke(prompt)

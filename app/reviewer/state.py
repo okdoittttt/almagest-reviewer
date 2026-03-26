@@ -38,6 +38,9 @@ class ReviewState(TypedDict):
     repo_owner: str
     repo_name: str
 
+    # ===== 0단계: 저장소 Skills =====
+    repo_skills: list[dict]
+
     # ===== 1단계: PR 의도 분석 =====
     pr_intent: Optional[dict]
 
@@ -86,6 +89,9 @@ def create_initial_state(
         installation_id=installation_id,
         repo_owner=repo_owner,
         repo_name=repo_name,
+
+        # Skills (load_skills 노드가 채움)
+        repo_skills=[],
 
         # 분석 결과 (초기값 None)
         pr_intent=None,

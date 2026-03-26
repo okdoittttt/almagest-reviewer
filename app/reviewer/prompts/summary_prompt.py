@@ -8,7 +8,8 @@ def create_summary_prompt(
     pr_data: PRData,
     pr_intent: dict,
     risk_assessment: dict,
-    file_reviews: list[dict]
+    file_reviews: list[dict],
+    repo_skills: list[dict] | None = None,
 ) -> str:
     """최종 리뷰 요약을 생성하는 프롬프트를 생성합니다.
 
@@ -17,6 +18,7 @@ def create_summary_prompt(
         pr_intent: PR 의도 분석 결과.
         risk_assessment: 위험도 평가 결과.
         file_reviews: 파일별 리뷰 결과 목록.
+        repo_skills: 저장소별 커스텀 리뷰 기준 목록.
 
     Returns:
         LLM에 전달할 프롬프트 문자열.
@@ -62,9 +64,17 @@ def create_summary_prompt(
 - 요약: {review.get('summary', 'N/A')}
 """)
 
+    skills_section = ""
+    if repo_skills:
+        skill_lines = [
+            f"- **{s.get('name', '?')}**: {s.get('description', '')}"
+            for s in repo_skills
+        ]
+        skills_section = "\n## 저장소 커스텀 리뷰 기준 (종합 평가 시 반드시 반영)\n" + "\n".join(skill_lines) + "\n"
+
     return f"""당신은 팀 리드 개발자로서 모든 파일 리뷰를 종합하여 최종 의견을 작성합니다.
 
-## PR 개요
+{skills_section}## PR 개요
 **제목:** {pr_data.title}
 **작성자:** @{pr_data.author.login}
 **의도:** {pr_intent.get('summary', 'N/A')} ({pr_intent.get('type', 'unknown')})

@@ -74,6 +74,8 @@ async def review_single_file(
     pr_intent: dict,
     risk_assessment: dict,
     context_files: dict[str, str] | None = None,
+    pr_files: list | None = None,
+    repo_skills: list[dict] | None = None,
 ) -> dict:
     """단일 파일을 리뷰하는 헬퍼 함수.
 
@@ -84,6 +86,8 @@ async def review_single_file(
         pr_intent: PR 의도 분석 결과.
         risk_assessment: 위험도 평가 결과.
         context_files: 리뷰에 필요한 관련 파일 내용. {파일경로: 내용} 형식.
+        pr_files: 이 PR에서 변경된 전체 파일 목록.
+        repo_skills: 저장소별 커스텀 리뷰 기준 목록.
 
     Returns:
         ``review``, ``message``, ``error`` 키를 포함하는 딕셔너리.
@@ -95,7 +99,7 @@ async def review_single_file(
         llm = get_llm(temperature=0.0)
 
         # 프롬프트 생성
-        prompt = create_file_review_prompt(file, pr_intent, risk_assessment, context_files)
+        prompt = create_file_review_prompt(file, pr_intent, risk_assessment, context_files, pr_files, repo_skills)
 
         # LLM 호출
         response = await llm.ainvoke(prompt)
@@ -173,6 +177,7 @@ async def review_all_files(state: ReviewState) -> dict:
     pr_data = state["pr_data"]
     pr_intent = state.get("pr_intent", {})
     risk_assessment = state.get("risk_assessment", {})
+    repo_skills = state.get("repo_skills", [])
 
     files = pr_data.files
     total_files = len(files)
@@ -199,7 +204,7 @@ async def review_all_files(state: ReviewState) -> dict:
 
     # 모든 파일 리뷰를 병렬로 실행
     review_tasks = [
-        review_single_file(file, idx, total_files, pr_intent, risk_assessment, context_files)
+        review_single_file(file, idx, total_files, pr_intent, risk_assessment, context_files, files, repo_skills)
         for idx, file in enumerate(files)
     ]
 

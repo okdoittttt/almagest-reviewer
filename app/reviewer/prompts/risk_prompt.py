@@ -46,6 +46,15 @@ def create_risk_assessment_prompt(pr_data: PRData, pr_intent: dict) -> str:
     test_files = [f for f in pr_data.files if 'test' in f.filename.lower() or f.filename.startswith('test_')]
     test_coverage_note = f"{len(test_files)}개의 테스트 파일이 변경됨" if test_files else "⚠️ 테스트 파일 변경 없음"
 
+    # 파일별 diff 샘플 (파일당 최대 500자, 전체 최대 10개)
+    diff_samples = []
+    for file in pr_data.files[:10]:
+        if file.patch:
+            sample = file.patch[:500]
+            truncated = "..." if len(file.patch) > 500 else ""
+            diff_samples.append(f"### `{file.filename}`\n```diff\n{sample}{truncated}\n```")
+    diff_samples_text = "\n\n".join(diff_samples) if diff_samples else "(diff 없음)"
+
     return f"""당신은 보안과 안정성을 중시하는 시니어 개발자입니다. 다음 PR의 위험도를 평가해주세요.
 
 ## PR 의도 (이전 단계 분석 결과)
@@ -66,6 +75,9 @@ def create_risk_assessment_prompt(pr_data: PRData, pr_intent: dict) -> str:
 
 ## 테스트 커버리지
 {test_coverage_note}
+
+## 코드 변경 샘플 (파일당 최대 500자)
+{diff_samples_text}
 
 ## 변경된 파일 목록
 {chr(10).join([f"- {f.filename} ({f.status}, +{f.additions}/-{f.deletions})" for f in pr_data.files[:15]])}
@@ -105,5 +117,6 @@ def create_risk_assessment_prompt(pr_data: PRData, pr_intent: dict) -> str:
 - 중요 파일 수정 (auth, security, payment 등)
 - 테스트 부재
 - 복잡한 로직 변경
+- 실제 코드에서 탐지: SQL 직접 문자열 조합, `eval()`, `subprocess`, 하드코딩 시크릿, 권한 검사 제거
 
 JSON만 응답해주세요."""
