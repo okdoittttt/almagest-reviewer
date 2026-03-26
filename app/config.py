@@ -38,6 +38,10 @@ class Settings(BaseSettings):
     ollama_base_url: str | None = None
     ollama_model: str = "llama3.2"
 
+    # diff 크기 제한 (HIGH 위험도 기준 최대값, LOW=30% / MEDIUM=70% / HIGH=100% 비율 적용)
+    diff_max_chars_cloud: int = 10000   # anthropic / google
+    diff_max_chars_ollama: int = 4000   # ollama (로컬 LLM 컨텍스트 창 고려)
+
     # 데이터베이스
     database_url: str = "postgresql+asyncpg://almagest:almagest@db:5432/almagest_reviewer"
 
