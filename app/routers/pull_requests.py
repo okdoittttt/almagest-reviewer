@@ -1,4 +1,5 @@
 """Pull Request 조회 API."""
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import func, select
@@ -185,13 +186,23 @@ async def merge_pull_request(
     if body.merge_method not in ("squash", "rebase", "merge"):
         raise HTTPException(status_code=422, detail="merge_method는 squash, rebase, merge 중 하나여야 합니다")
 
-    await github_client.merge_pull_request(
-        installation_id=repo.installation_id,
-        repo_owner=repo.owner,
-        repo_name=repo.name,
-        pull_number=pr.pr_number,
-        merge_method=body.merge_method,
-    )
+    try:
+        await github_client.merge_pull_request(
+            installation_id=repo.installation_id,
+            repo_owner=repo.owner,
+            repo_name=repo.name,
+            pull_number=pr.pr_number,
+            merge_method=body.merge_method,
+        )
+    except httpx.HTTPStatusError as e:
+        status = e.response.status_code
+        if status == 403:
+            raise HTTPException(status_code=403, detail="GitHub App에 병합 권한이 없습니다. App 설정에서 Pull requests를 Read and write로 변경해주세요.")
+        if status == 405:
+            raise HTTPException(status_code=422, detail="PR을 병합할 수 없습니다. 충돌 또는 병합 조건이 충족되지 않았습니다.")
+        if status == 409:
+            raise HTTPException(status_code=409, detail="병합 충돌이 발생했습니다.")
+        raise HTTPException(status_code=502, detail=f"GitHub API 오류: {e.response.text}")
 
     pr.state = "merged"
     await session.flush()
