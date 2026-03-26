@@ -12,6 +12,7 @@ def create_file_review_prompt(
     context_files: dict[str, str] | None = None,
     pr_files: list | None = None,
     repo_skills: list[dict] | None = None,
+    previous_review: dict | None = None,
 ) -> str:
     """개별 파일을 리뷰하는 프롬프트를 생성합니다.
 
@@ -22,6 +23,7 @@ def create_file_review_prompt(
         context_files: 리뷰에 필요한 관련 파일 내용. {파일경로: 내용} 형식.
         pr_files: 이 PR에서 변경된 전체 파일 목록 (FileChange 리스트).
         repo_skills: 저장소별 커스텀 리뷰 기준 목록.
+        previous_review: 이전 리뷰 컨텍스트. ``unresolved_by_file`` 등을 포함합니다.
 
     Returns:
         LLM에 전달할 프롬프트 문자열.
@@ -78,6 +80,17 @@ JSON만 응답해주세요."""
                 + "\n"
             )
 
+    prev_issues_section = ""
+    if previous_review:
+        unresolved = previous_review.get("unresolved_by_file", {}).get(file.filename, [])
+        if unresolved:
+            lines = [f"- [{c['type']}] {c['body']}" for c in unresolved]
+            prev_issues_section = (
+                "\n## 이전 리뷰에서 미해결된 이슈 (이 파일)\n"
+                + "\n".join(lines)
+                + "\n이 이슈들이 이번 변경에서 해결됐는지 확인하고, 결과를 리뷰에 명시해주세요.\n"
+            )
+
     context_section = ""
     if context_files:
         parts = []
@@ -93,7 +106,7 @@ JSON만 응답해주세요."""
 **PR 의도:** {pr_intent.get('summary', 'N/A')} ({pr_intent.get('type', 'unknown')})
 **위험도:** {risk_assessment.get('level', 'UNKNOWN')} (점수: {risk_assessment.get('score', 0)}/10)
 **주요 검토 영역:** {', '.join(risk_assessment.get('review_focus_areas', [])[:3])}
-{skills_section}{pr_files_section}{context_section}
+{skills_section}{pr_files_section}{prev_issues_section}{context_section}
 ## 파일 정보
 **경로:** `{file.filename}`
 **상태:** {file.status}

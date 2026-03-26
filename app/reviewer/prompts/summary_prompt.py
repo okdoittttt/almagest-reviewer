@@ -11,6 +11,7 @@ def create_summary_prompt(
     risk_assessment: dict,
     file_reviews: list[dict],
     repo_skills: list[dict] | None = None,
+    previous_review: dict | None = None,
 ) -> str:
     """최종 리뷰 요약을 생성하는 프롬프트를 생성합니다.
 
@@ -20,6 +21,7 @@ def create_summary_prompt(
         risk_assessment: 위험도 평가 결과.
         file_reviews: 파일별 리뷰 결과 목록.
         repo_skills: 저장소별 커스텀 리뷰 기준 목록.
+        previous_review: 이전 리뷰 컨텍스트 (미해결 코멘트, 이전 판정 등).
 
     Returns:
         LLM에 전달할 프롬프트 문자열.
@@ -65,6 +67,33 @@ def create_summary_prompt(
 - 요약: {review.get('summary', 'N/A')}
 """)
 
+    prev_review_section = ""
+    if previous_review:
+        unresolved_count = previous_review.get("unresolved_count", 0)
+        prev_decision = previous_review.get("decision", "N/A")
+        prev_risk = previous_review.get("risk_level", "N/A")
+
+        unresolved_lines = []
+        for filename, comments in previous_review.get("unresolved_by_file", {}).items():
+            for c in comments:
+                unresolved_lines.append(f"- **{filename}** [{c['type']}]: {c['body']}")
+
+        unresolved_text = "\n".join(unresolved_lines[:10]) if unresolved_lines else "(없음)"
+        if len(unresolved_lines) > 10:
+            unresolved_text += f"\n... 외 {len(unresolved_lines) - 10}개"
+
+        prev_review_section = f"""
+## 이전 리뷰 현황 (델타 분석 참고)
+- 이전 판정: **{prev_decision}** (위험도: {prev_risk})
+- 미해결 코멘트: **{unresolved_count}개**
+
+### 미해결 이슈 목록
+{unresolved_text}
+
+종합 평가 시 위 미해결 이슈들이 이번 PR에서 해결됐는지 판단하고,
+개선된 항목과 여전히 남은 항목을 코멘트에 명시해주세요.
+"""
+
     skills_section = ""
     if repo_skills:
         safe_skills = sanitize_skills(repo_skills)
@@ -81,7 +110,7 @@ def create_summary_prompt(
 
     return f"""당신은 팀 리드 개발자로서 모든 파일 리뷰를 종합하여 최종 의견을 작성합니다.
 
-{skills_section}## PR 개요
+{prev_review_section}{skills_section}## PR 개요
 **제목:** {pr_data.title}
 **작성자:** @{pr_data.author.login}
 **의도:** {pr_intent.get('summary', 'N/A')} ({pr_intent.get('type', 'unknown')})

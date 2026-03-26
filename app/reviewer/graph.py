@@ -11,6 +11,7 @@ from app.reviewer.nodes import (
     review_all_files,
     summarize_review,
     load_repo_skills,
+    load_previous_review,
 )
 
 MAX_RETRIES = 2  # 최대 review_all_files 실행 횟수 (초기 1회 + 재시도 1회)
@@ -65,6 +66,8 @@ def create_review_graph() -> StateGraph:
           ↓
         load_skills (저장소 Skills 로드)
           ↓
+        load_previous_review (이전 리뷰 + 미해결 코멘트 로드)
+          ↓
         analyze_intent (PR 의도 분석)
           ↓
         classify_risk (위험도 분류)
@@ -86,6 +89,7 @@ def create_review_graph() -> StateGraph:
 
     # 노드 추가
     workflow.add_node("load_skills", load_repo_skills)
+    workflow.add_node("load_previous_review", load_previous_review)
     workflow.add_node("analyze_intent", analyze_pr_intent)
     workflow.add_node("classify_risk", classify_risk)
     workflow.add_node("review_all_files", review_all_files)
@@ -95,7 +99,8 @@ def create_review_graph() -> StateGraph:
     workflow.set_entry_point("load_skills")
 
     # 순차 엣지
-    workflow.add_edge("load_skills", "analyze_intent")
+    workflow.add_edge("load_skills", "load_previous_review")
+    workflow.add_edge("load_previous_review", "analyze_intent")
     workflow.add_edge("analyze_intent", "classify_risk")
 
     # 조건부 엣지 1: 위험도에 따라 파일 리뷰 스킵 여부 결정

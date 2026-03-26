@@ -3,6 +3,7 @@ from .risk_classifier import classify_risk
 from .file_reviewer import review_all_files
 from .summarizer import summarize_review
 from .skill_loader import load_repo_skills
+from .previous_review_loader import load_previous_review
 
 __all__ = [
     "analyze_pr_intent",
@@ -10,4 +11,5 @@ __all__ = [
     "review_all_files",
     "summarize_review",
     "load_repo_skills",
+    "load_previous_review",
 ]
