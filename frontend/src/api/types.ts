@@ -51,6 +51,7 @@ export interface Review {
 export interface ReviewComment {
   id: number
   review_id: number
+  parent_id: number | null
   filename: string | null
   comment_type: string
   body: string | null

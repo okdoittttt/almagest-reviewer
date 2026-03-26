@@ -1,5 +1,8 @@
 """ReviewComment ORM 모델."""
+from __future__ import annotations
+
 from datetime import datetime
+from typing import Optional
 
 from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -13,8 +16,9 @@ class ReviewComment(Base, TimestampMixin):
     Attributes:
         id: 내부 PK.
         review_id: 연결된 Review FK.
+        parent_id: 답글 대상 코멘트 PK. 최상위 코멘트는 NULL.
         filename: 코멘트 대상 파일 경로.
-        comment_type: 코멘트 유형 (issue/suggestion).
+        comment_type: 코멘트 유형 (issue/suggestion/reply).
         body: 코멘트 내용.
         is_addressed: 팔로업에서 처리 완료 여부.
         addressed_at: 처리 완료 시각.
@@ -30,6 +34,9 @@ class ReviewComment(Base, TimestampMixin):
     review_id: Mapped[int] = mapped_column(
         BigInteger, ForeignKey("reviews.id", ondelete="CASCADE"), nullable=False
     )
+    parent_id: Mapped[Optional[int]] = mapped_column(
+        BigInteger, ForeignKey("review_comments.id", ondelete="CASCADE"), nullable=True
+    )
     filename: Mapped[str | None] = mapped_column(String(1000))
     comment_type: Mapped[str] = mapped_column(String(50), default="issue", nullable=False)
     body: Mapped[str | None] = mapped_column(Text)
@@ -38,4 +45,16 @@ class ReviewComment(Base, TimestampMixin):
 
     review: Mapped["Review"] = relationship(  # noqa: F821
         "Review", back_populates="comments"
+    )
+    replies: Mapped[list["ReviewComment"]] = relationship(
+        "ReviewComment",
+        back_populates="parent",
+        cascade="all, delete-orphan",
+        foreign_keys="ReviewComment.parent_id",
+    )
+    parent: Mapped[Optional["ReviewComment"]] = relationship(
+        "ReviewComment",
+        back_populates="replies",
+        remote_side="ReviewComment.id",
+        foreign_keys="ReviewComment.parent_id",
     )

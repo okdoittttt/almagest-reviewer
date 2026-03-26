@@ -287,6 +287,79 @@ class GitHubClient:
         logger.info(f"{repo_owner}/{repo_name}에서 PR {len(results)}개를 조회했습니다 (state={state})")
         return results
 
+    async def merge_pull_request(
+        self,
+        installation_id: str,
+        repo_owner: str,
+        repo_name: str,
+        pull_number: int,
+        merge_method: str = "squash",
+    ) -> dict[str, Any]:
+        """Pull Request를 병합한다.
+
+        Args:
+            installation_id: GitHub App의 Installation ID
+            repo_owner: 저장소 소유자
+            repo_name: 저장소 이름
+            pull_number: Pull Request 번호
+            merge_method: 병합 방식 ("squash", "rebase", "merge")
+
+        Returns:
+            병합 결과 (sha, merged, message)
+
+        Raises:
+            httpx.HTTPStatusError: 병합 불가 상태(405)나 충돌(409) 등
+        """
+        token = await self.get_installation_token(installation_id)
+
+        async with httpx.AsyncClient() as client:
+            response = await client.put(
+                f"{self.BASE_URL}/repos/{repo_owner}/{repo_name}/pulls/{pull_number}/merge",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Accept": "application/vnd.github+json",
+                    "X-GitHub-Api-Version": "2022-11-28"
+                },
+                json={"merge_method": merge_method},
+                timeout=15.0
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            logger.info(f"{repo_owner}/{repo_name} PR #{pull_number}을 {merge_method} 방식으로 병합했습니다")
+            return data
+
+    async def create_pr_review_reply(
+        self,
+        installation_id: str,
+        repo_owner: str,
+        repo_name: str,
+        pull_number: int,
+        body: str,
+    ) -> dict[str, Any]:
+        """Pull Request에 답글 코멘트를 작성한다.
+
+        Args:
+            installation_id: GitHub App의 Installation ID
+            repo_owner: 저장소 소유자
+            repo_name: 저장소 이름
+            pull_number: Pull Request 번호
+            body: 코멘트 내용
+
+        Returns:
+            생성된 코멘트 정보
+
+        Raises:
+            httpx.HTTPStatusError: GitHub API 호출 결과 에러가 발생한 경우
+        """
+        return await self.create_pr_comment(
+            installation_id=installation_id,
+            repo_owner=repo_owner,
+            repo_name=repo_name,
+            pull_number=pull_number,
+            comment_body=body,
+        )
+
     async def get_pr_details(
         self,
         installation_id: str,

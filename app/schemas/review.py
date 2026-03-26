@@ -29,6 +29,7 @@ class ReviewDetail(ReviewListItem):
 class ReviewCommentOut(BaseModel):
     id: int
     review_id: int
+    parent_id: int | None
     filename: str | None
     comment_type: str
     body: str | None

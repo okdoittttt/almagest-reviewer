@@ -68,6 +68,14 @@ export const updateCommentAddressed = (reviewId: number, commentId: number, isAd
     .patch<ReviewComment>(`/reviews/${reviewId}/comments/${commentId}`, { is_addressed: isAddressed })
     .then(r => r.data)
 
+export const createCommentReply = (reviewId: number, commentId: number, body: string) =>
+  api
+    .post<ReviewComment>(`/reviews/${reviewId}/comments/${commentId}/replies`, { body })
+    .then(r => r.data)
+
+export const mergePullRequest = (prId: number, mergeMethod: string) =>
+  api.post<import('./types').PullRequest>(`/pull-requests/${prId}/merge`, { merge_method: mergeMethod }).then(r => r.data)
+
 // Skills
 export const getSkills = (repoId: number) =>
   api.get<Skill[]>(`/repositories/${repoId}/skills`).then(r => r.data)

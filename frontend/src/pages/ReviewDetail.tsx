@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
-import { getReview, getReviewComments, updateCommentAddressed } from '../api/client'
+import { getReview, getReviewComments, updateCommentAddressed, createCommentReply } from '../api/client'
 import type { Review, ReviewComment } from '../api/types'
 import { Badge, DecisionBadge, RiskBadge } from '../components/Badge'
 
@@ -19,6 +19,9 @@ export function ReviewDetail() {
   const [comments, setComments] = useState<ReviewComment[]>([])
   const [expanded, setExpanded] = useState<Set<number>>(new Set())
   const [loading, setLoading] = useState(true)
+  const [replyingTo, setReplyingTo] = useState<number | null>(null)
+  const [replyText, setReplyText] = useState('')
+  const [submittingReply, setSubmittingReply] = useState(false)
 
   useEffect(() => {
     if (!reviewId) return
@@ -43,6 +46,21 @@ export function ReviewDetail() {
     if (!review) return
     const updated = await updateCommentAddressed(review.id, comment.id, !comment.is_addressed)
     setComments(prev => prev.map(c => (c.id === updated.id ? updated : c)))
+  }
+
+  const handleReplySubmit = async (commentId: number) => {
+    if (!review || !replyText.trim()) return
+    setSubmittingReply(true)
+    try {
+      const reply = await createCommentReply(review.id, commentId, replyText.trim())
+      setComments(prev => [...prev, reply])
+      setReplyingTo(null)
+      setReplyText('')
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setSubmittingReply(false)
+    }
   }
 
   if (loading) return <div className="text-secondary mt-10 text-center">불러오는 중...</div>
@@ -181,46 +199,113 @@ export function ReviewDetail() {
       )}
 
       {/* Review Comments */}
-      {comments.length > 0 && (
+      {comments.filter(c => c.parent_id === null).length > 0 && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <h3 className="text-base font-semibold text-primary">코멘트</h3>
-            <span className="text-xs text-muted">{comments.length}개</span>
+            <span className="text-xs text-muted">{comments.filter(c => c.parent_id === null).length}개</span>
           </div>
-          {comments.map(comment => (
-            <div
-              key={comment.id}
-              className={`bg-surface rounded-xl border p-4 flex items-start gap-3 transition-all duration-150 ${
-                comment.is_addressed
-                  ? 'border-success/20 opacity-50'
-                  : 'border-white/[0.07]'
-              }`}
-            >
-              <input
-                type="checkbox"
-                checked={comment.is_addressed}
-                onChange={() => handleAddressed(comment)}
-                className="mt-0.5 cursor-pointer accent-accent"
-              />
-              <div className="flex-1 space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <Badge
-                    label={comment.comment_type}
-                    variant={comment.comment_type === 'issue' ? 'red' : 'blue'}
+          {comments.filter(c => c.parent_id === null).map(comment => {
+            const replies = comments.filter(c => c.parent_id === comment.id)
+            const isReplying = replyingTo === comment.id
+            return (
+              <div key={comment.id} className="space-y-1">
+                {/* 원본 코멘트 */}
+                <div
+                  className={`bg-surface rounded-xl border p-4 flex items-start gap-3 transition-all duration-150 ${
+                    comment.is_addressed ? 'border-success/20 opacity-50' : 'border-white/[0.07]'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={comment.is_addressed}
+                    onChange={() => handleAddressed(comment)}
+                    className="mt-0.5 cursor-pointer accent-accent"
                   />
-                  {comment.filename && (
-                    <span className="text-xs font-mono text-muted">{comment.filename}</span>
-                  )}
+                  <div className="flex-1 space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          label={comment.comment_type}
+                          variant={comment.comment_type === 'issue' ? 'red' : 'blue'}
+                        />
+                        {comment.filename && (
+                          <span className="text-xs font-mono text-muted">{comment.filename}</span>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => {
+                          setReplyingTo(isReplying ? null : comment.id)
+                          setReplyText('')
+                        }}
+                        className="text-xs text-muted hover:text-accent transition-colors"
+                      >
+                        답글
+                      </button>
+                    </div>
+                    <p className="text-sm text-secondary">{comment.body}</p>
+                    {comment.is_addressed && comment.addressed_at && (
+                      <p className="text-xs text-success">
+                        처리됨: {new Date(comment.addressed_at).toLocaleString('ko-KR')}
+                      </p>
+                    )}
+                  </div>
                 </div>
-                <p className="text-sm text-secondary">{comment.body}</p>
-                {comment.is_addressed && comment.addressed_at && (
-                  <p className="text-xs text-success">
-                    처리됨: {new Date(comment.addressed_at).toLocaleString('ko-KR')}
-                  </p>
+
+                {/* 답글 목록 */}
+                {replies.length > 0 && (
+                  <div className="ml-8 space-y-1">
+                    {replies.map(reply => (
+                      <div
+                        key={reply.id}
+                        className="bg-surface/60 rounded-xl border border-white/[0.05] p-3 flex items-start gap-3"
+                      >
+                        <div className="w-4 flex-shrink-0 flex items-center justify-center text-muted text-xs">↳</div>
+                        <div className="flex-1 space-y-1">
+                          <div className="flex items-center gap-2">
+                            <Badge label="reply" variant="gray" />
+                            <span className="text-xs text-muted">
+                              {new Date(reply.created_at).toLocaleString('ko-KR')}
+                            </span>
+                          </div>
+                          <p className="text-sm text-secondary">{reply.body}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* 답글 입력폼 */}
+                {isReplying && (
+                  <div className="ml-8 bg-surface/60 rounded-xl border border-accent/20 p-3 space-y-2">
+                    <textarea
+                      value={replyText}
+                      onChange={e => setReplyText(e.target.value)}
+                      placeholder="답글을 입력하세요..."
+                      rows={2}
+                      className="w-full bg-transparent text-sm text-secondary placeholder-muted resize-none outline-none"
+                    />
+                    <div className="flex justify-end gap-2">
+                      <button
+                        onClick={() => { setReplyingTo(null); setReplyText('') }}
+                        className="text-xs text-muted hover:text-secondary transition-colors"
+                        disabled={submittingReply}
+                      >
+                        취소
+                      </button>
+                      <button
+                        onClick={() => handleReplySubmit(comment.id)}
+                        disabled={submittingReply || !replyText.trim()}
+                        className="px-3 py-1 text-xs font-semibold bg-accent/20 text-accent border border-accent/30 rounded-lg hover:bg-accent/30 transition-colors disabled:opacity-50"
+                      >
+                        {submittingReply ? '전송 중...' : '답글 등록'}
+                      </button>
+                    </div>
+                  </div>
                 )}
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
