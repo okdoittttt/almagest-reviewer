@@ -7,7 +7,9 @@ from app.database import get_db
 from app.database.models.pull_request import PullRequest
 from app.database.models.repository import Repository
 from app.database.models.skill import Skill
+from app.github import github_client
 from app.schemas.repository import RepositoryListItem
+from app.services.review_service import update_pr_state
 
 router = APIRouter(prefix="/repositories", tags=["repositories"])
 
@@ -56,3 +58,48 @@ async def toggle_repository(repo_id: int, session: AsyncSession = Depends(get_db
     item.pull_request_count = pr_count or 0
     item.skill_count = skill_count or 0
     return item
+
+
+@router.post("/{repo_id}/sync-prs")
+async def sync_pull_request_states(
+    repo_id: int,
+    session: AsyncSession = Depends(get_db),
+) -> dict:
+    """GitHub에서 PR 상태를 가져와 DB와 동기화한다.
+
+    DB에 open으로 저장된 PR 중 GitHub에서 실제로 closed/merged인 것들을 업데이트한다.
+    """
+    repo = await session.get(Repository, repo_id)
+    if repo is None:
+        raise HTTPException(status_code=404, detail="Repository not found")
+
+    open_prs_result = await session.execute(
+        select(PullRequest).where(
+            PullRequest.repository_id == repo_id,
+            PullRequest.state == "open",
+        )
+    )
+    open_prs = open_prs_result.scalars().all()
+
+    if not open_prs:
+        return {"updated": 0, "details": []}
+
+    gh_prs = await github_client.list_prs(
+        installation_id=repo.installation_id,
+        repo_owner=repo.owner,
+        repo_name=repo.name,
+        state="all",
+    )
+    gh_pr_map = {p["number"]: p for p in gh_prs}
+
+    updated = []
+    for pr in open_prs:
+        gh_pr = gh_pr_map.get(pr.pr_number)
+        if gh_pr is None:
+            continue
+        if gh_pr["state"] == "closed":
+            new_state = "merged" if gh_pr.get("merged_at") else "closed"
+            await update_pr_state(session, repo.github_repo_id, pr.pr_number, new_state)
+            updated.append({"pr_number": pr.pr_number, "new_state": new_state})
+
+    return {"updated": len(updated), "details": updated}

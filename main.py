@@ -9,15 +9,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.dependencies.auth import get_current_user
-from app.github import GitHubClient, PRDataCollector
+from app.github import github_client, pr_collector
 from app.reviewer import run_review
 from app.routers import auth, pull_requests, repositories, reviews, skills, stats
-from app.services.review_service import persist_review_result
+from app.services.review_service import persist_review_result, update_pr_state
 from app.webhook import verify_webhook_signature
 
 app = FastAPI(title="Almagest Reviewer")
-github_client = GitHubClient()
-pr_collector = PRDataCollector(github_client)
 
 # 인증 라우터 (보호 없음 — 로그인 자체는 인증 불필요)
 app.include_router(auth.router, prefix="/api")
@@ -54,7 +52,19 @@ async def github_webhook(request: Request, session: AsyncSession = Depends(get_d
     logger.info(f"📩 이벤트 수신: event={event}, action={action}")
 
     # PR 이벤트 처리
-    if payload.get("action") in ["opened", "synchronize"]:
+    if action == "closed":
+        repo = payload["repository"]
+        pr = payload["pull_request"]
+
+        github_repo_id = repo["id"]
+        pr_number = pr["number"]
+        new_state = "merged" if pr.get("merged") else "closed"
+
+        logger.info(f"🔒 PR #{pr_number} 상태 업데이트: {new_state}")
+        await update_pr_state(session, github_repo_id, pr_number, new_state)
+        logger.info(f"✅ PR #{pr_number} 상태 업데이트 완료")
+
+    elif action in ["opened", "synchronize"]:
         installation_id = str(payload["installation"]["id"])
         repo = payload["repository"]
         pr = payload["pull_request"]

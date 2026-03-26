@@ -236,6 +236,57 @@ class GitHubClient:
             logger.info(f"PR #{pull_number}에서 {len(data)}개의 커밋을 조회했습니다")
             return data
 
+    async def list_prs(
+        self,
+        installation_id: str,
+        repo_owner: str,
+        repo_name: str,
+        state: str = "all",
+        per_page: int = 100,
+    ) -> list[dict[str, Any]]:
+        """저장소의 Pull Request 목록을 조회한다.
+
+        Args:
+            installation_id: GitHub App의 Installation ID
+            repo_owner: 저장소 소유자
+            repo_name: 저장소 이름
+            state: PR 상태 필터 ("open", "closed", "all")
+            per_page: 페이지당 결과 수 (최대 100)
+
+        Returns:
+            PR 목록 (number, state, merged_at 등의 정보 포함)
+
+        Raises:
+            httpx.HTTPStatusError: GitHub API 호출 결과 에러가 발생한 경우
+        """
+        token = await self.get_installation_token(installation_id)
+        results: list[dict[str, Any]] = []
+        page = 1
+
+        async with httpx.AsyncClient() as client:
+            while True:
+                response = await client.get(
+                    f"{self.BASE_URL}/repos/{repo_owner}/{repo_name}/pulls",
+                    headers={
+                        "Authorization": f"Bearer {token}",
+                        "Accept": "application/vnd.github+json",
+                        "X-GitHub-Api-Version": "2022-11-28"
+                    },
+                    params={"state": state, "per_page": per_page, "page": page},
+                    timeout=30.0
+                )
+                response.raise_for_status()
+                data = response.json()
+                if not data:
+                    break
+                results.extend(data)
+                if len(data) < per_page:
+                    break
+                page += 1
+
+        logger.info(f"{repo_owner}/{repo_name}에서 PR {len(results)}개를 조회했습니다 (state={state})")
+        return results
+
     async def get_pr_details(
         self,
         installation_id: str,
