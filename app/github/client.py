@@ -329,37 +329,6 @@ class GitHubClient:
             logger.info(f"{repo_owner}/{repo_name} PR #{pull_number}을 {merge_method} 방식으로 병합했습니다")
             return data
 
-    async def create_pr_review_reply(
-        self,
-        installation_id: str,
-        repo_owner: str,
-        repo_name: str,
-        pull_number: int,
-        body: str,
-    ) -> dict[str, Any]:
-        """Pull Request에 답글 코멘트를 작성한다.
-
-        Args:
-            installation_id: GitHub App의 Installation ID
-            repo_owner: 저장소 소유자
-            repo_name: 저장소 이름
-            pull_number: Pull Request 번호
-            body: 코멘트 내용
-
-        Returns:
-            생성된 코멘트 정보
-
-        Raises:
-            httpx.HTTPStatusError: GitHub API 호출 결과 에러가 발생한 경우
-        """
-        return await self.create_pr_comment(
-            installation_id=installation_id,
-            repo_owner=repo_owner,
-            repo_name=repo_name,
-            pull_number=pull_number,
-            comment_body=body,
-        )
-
     async def get_pr_details(
         self,
         installation_id: str,

@@ -7,6 +7,7 @@ from datetime import datetime
 
 from loguru import logger
 
+from app.github import github_client
 from app.reviewer.state import ReviewState
 from app.reviewer.prompts import create_file_review_prompt
 from app.reviewer.llm import get_llm
@@ -41,8 +42,6 @@ async def _fetch_context_files(
     Returns:
         {파일경로: 파일내용} 딕셔너리. 가져오지 못한 파일은 포함되지 않습니다.
     """
-    from app.github import github_client
-
     needs_entry_file = any(
         pattern in f.filename for f in changed_files for pattern in _ROUTE_PATH_PATTERNS
     )

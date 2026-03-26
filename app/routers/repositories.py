@@ -15,6 +15,14 @@ router = APIRouter(prefix="/repositories", tags=["repositories"])
 
 
 async def _list_repositories(session: AsyncSession) -> list[RepositoryListItem]:
+    """모든 저장소를 PR/Skill 수와 함께 조회한다.
+
+    Args:
+        session: 비동기 DB 세션.
+
+    Returns:
+        pull_request_count, skill_count가 채워진 RepositoryListItem 목록 (최신순).
+    """
     rows = await session.execute(
         select(
             Repository,
@@ -37,11 +45,31 @@ async def _list_repositories(session: AsyncSession) -> list[RepositoryListItem]:
 
 @router.get("", response_model=list[RepositoryListItem])
 async def list_repositories(session: AsyncSession = Depends(get_db)) -> list[RepositoryListItem]:
+    """저장소 목록을 반환한다.
+
+    Args:
+        session: 비동기 DB 세션.
+
+    Returns:
+        RepositoryListItem 목록 (최신순).
+    """
     return await _list_repositories(session)
 
 
 @router.patch("/{repo_id}/toggle", response_model=RepositoryListItem)
 async def toggle_repository(repo_id: int, session: AsyncSession = Depends(get_db)) -> RepositoryListItem:
+    """저장소의 활성화 상태를 토글한다.
+
+    Args:
+        repo_id: 저장소 내부 PK.
+        session: 비동기 DB 세션.
+
+    Returns:
+        업데이트된 RepositoryListItem.
+
+    Raises:
+        HTTPException: repo_id에 해당하는 저장소가 없으면 404.
+    """
     repo = await session.get(Repository, repo_id)
     if repo is None:
         raise HTTPException(status_code=404, detail="Repository not found")
@@ -68,6 +96,16 @@ async def sync_pull_request_states(
     """GitHub에서 PR 상태를 가져와 DB와 동기화한다.
 
     DB에 open으로 저장된 PR 중 GitHub에서 실제로 closed/merged인 것들을 업데이트한다.
+
+    Args:
+        repo_id: 저장소 내부 PK.
+        session: 비동기 DB 세션.
+
+    Returns:
+        ``{"updated": N, "details": [{"pr_number": ..., "new_state": ...}, ...]}``
+
+    Raises:
+        HTTPException: repo_id에 해당하는 저장소가 없으면 404.
     """
     repo = await session.get(Repository, repo_id)
     if repo is None:

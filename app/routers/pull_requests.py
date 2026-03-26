@@ -16,6 +16,17 @@ router = APIRouter(tags=["pull_requests"])
 
 
 def _to_list_item(pr: PullRequest, review_count: int, owner: str, name: str) -> PullRequestListItem:
+    """PullRequest ORM 객체를 PullRequestListItem 스키마로 변환한다.
+
+    Args:
+        pr: PullRequest ORM 인스턴스.
+        review_count: 연결된 리뷰 수.
+        owner: 저장소 소유자 login.
+        name: 저장소 이름.
+
+    Returns:
+        repo_owner, repo_name, review_count가 채워진 PullRequestListItem.
+    """
     item = PullRequestListItem.model_validate(pr)
     item.review_count = review_count
     item.repo_owner = owner
@@ -30,6 +41,20 @@ async def list_pull_requests(
     risk_level: str | None = Query(None),
     session: AsyncSession = Depends(get_db),
 ) -> list[PullRequestListItem]:
+    """특정 저장소의 PR 목록을 반환한다.
+
+    Args:
+        repo_id: 저장소 내부 PK.
+        state: PR 상태 필터 (open/closed/merged).
+        risk_level: 리스크 수준 필터 (LOW/MEDIUM/HIGH).
+        session: 비동기 DB 세션.
+
+    Returns:
+        필터가 적용된 PullRequestListItem 목록 (최신순).
+
+    Raises:
+        HTTPException: repo_id에 해당하는 저장소가 없으면 404.
+    """
     repo = await session.get(Repository, repo_id)
     if repo is None:
         raise HTTPException(status_code=404, detail="Repository not found")
@@ -59,6 +84,19 @@ async def list_all_pull_requests(
     offset: int = Query(0),
     session: AsyncSession = Depends(get_db),
 ) -> list[PullRequestListItem]:
+    """전체 저장소의 PR 목록을 반환한다.
+
+    Args:
+        state: PR 상태 필터 (open/closed/merged).
+        risk_level: 리스크 수준 필터 (LOW/MEDIUM/HIGH).
+        review_decision: 최신 리뷰 판정 필터 (APPROVE/REQUEST_CHANGES/COMMENT).
+        limit: 최대 반환 수 (기본 50, 최대 200).
+        offset: 페이지네이션 오프셋.
+        session: 비동기 DB 세션.
+
+    Returns:
+        필터가 적용된 PullRequestListItem 목록 (최신순).
+    """
     q = (
         select(PullRequest, func.count(Review.id).label("review_count"), Repository.owner, Repository.name)
         .join(Repository, Repository.id == PullRequest.repository_id)
@@ -91,6 +129,18 @@ async def list_all_pull_requests(
 
 @router.get("/pull-requests/{pr_id}", response_model=PullRequestDetail)
 async def get_pull_request(pr_id: int, session: AsyncSession = Depends(get_db)) -> PullRequestDetail:
+    """단일 PR의 상세 정보를 반환한다.
+
+    Args:
+        pr_id: PR 내부 PK.
+        session: 비동기 DB 세션.
+
+    Returns:
+        PullRequestDetail 스키마.
+
+    Raises:
+        HTTPException: pr_id에 해당하는 PR이 없으면 404.
+    """
     pr = await session.get(PullRequest, pr_id)
     if pr is None:
         raise HTTPException(status_code=404, detail="Pull request not found")
@@ -111,6 +161,19 @@ async def merge_pull_request(
     body: MergeRequest,
     session: AsyncSession = Depends(get_db),
 ) -> PullRequestDetail:
+    """PR을 GitHub에서 병합하고 로컬 상태를 merged로 업데이트한다.
+
+    Args:
+        pr_id: PR 내부 PK.
+        body: 병합 방식 (squash/rebase/merge).
+        session: 비동기 DB 세션.
+
+    Returns:
+        병합 후 업데이트된 PullRequestDetail.
+
+    Raises:
+        HTTPException: PR이 없으면 404, 이미 닫혔거나 merge_method가 올바르지 않으면 422.
+    """
     pr = await session.get(PullRequest, pr_id)
     if pr is None:
         raise HTTPException(status_code=404, detail="Pull request not found")
@@ -141,6 +204,18 @@ async def merge_pull_request(
 
 @router.get("/pull-requests/{pr_id}/reviews", response_model=list[ReviewListItem])
 async def list_pr_reviews(pr_id: int, session: AsyncSession = Depends(get_db)) -> list[ReviewListItem]:
+    """특정 PR에 속한 리뷰 목록을 반환한다.
+
+    Args:
+        pr_id: PR 내부 PK.
+        session: 비동기 DB 세션.
+
+    Returns:
+        ReviewListItem 목록 (최신순).
+
+    Raises:
+        HTTPException: pr_id에 해당하는 PR이 없으면 404.
+    """
     pr = await session.get(PullRequest, pr_id)
     if pr is None:
         raise HTTPException(status_code=404, detail="Pull request not found")
