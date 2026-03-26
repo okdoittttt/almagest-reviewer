@@ -10,8 +10,10 @@ from loguru import logger
 from app.github import github_client
 from app.reviewer.state import ReviewState
 from app.reviewer.prompts import create_file_review_prompt
-from app.reviewer.llm import get_llm
+from app.reviewer.llm import get_llm, get_current_provider
 from app.reviewer.utils import parse_llm_json_response
+from app.reviewer.file_filter import should_skip_file
+from app.reviewer.diff_limit import get_diff_limit
 from app.models import FileChange
 
 # 라우터/뷰/API 파일이 포함된 경로 패턴 → 앱 진입점을 컨텍스트로 제공
@@ -77,6 +79,7 @@ async def review_single_file(
     pr_files: list | None = None,
     repo_skills: list[dict] | None = None,
     previous_review: dict | None = None,
+    diff_max_chars: int = 10000,
 ) -> dict:
     """단일 파일을 리뷰하는 헬퍼 함수.
 
@@ -90,6 +93,7 @@ async def review_single_file(
         pr_files: 이 PR에서 변경된 전체 파일 목록.
         repo_skills: 저장소별 커스텀 리뷰 기준 목록.
         previous_review: 이전 리뷰 컨텍스트 (미해결 코멘트 포함).
+        diff_max_chars: diff 최대 표시 길이 (문자 수).
 
     Returns:
         ``review``, ``message``, ``error`` 키를 포함하는 딕셔너리.
@@ -102,7 +106,8 @@ async def review_single_file(
 
         # 프롬프트 생성
         prompt = create_file_review_prompt(
-            file, pr_intent, risk_assessment, context_files, pr_files, repo_skills, previous_review
+            file, pr_intent, risk_assessment, context_files,
+            pr_files, repo_skills, previous_review, diff_max_chars,
         )
 
         # LLM 호출
@@ -184,7 +189,21 @@ async def review_all_files(state: ReviewState) -> dict:
     repo_skills = state.get("repo_skills", [])
     previous_review = state.get("previous_review")
 
-    files = pr_data.files
+    all_files = pr_data.files
+
+    # 저가치 파일 필터링 (lock, generated, build artifacts 등)
+    files = []
+    for f in all_files:
+        skip, reason = should_skip_file(f.filename)
+        if skip:
+            logger.info(f"⏭️  스킵: {f.filename} ({reason})")
+        else:
+            files.append(f)
+
+    skipped_count = len(all_files) - len(files)
+    if skipped_count:
+        logger.info(f"⏭️  총 {skipped_count}개 파일 스킵 (lock/generated/build)")
+
     total_files = len(files)
 
     if total_files == 0:
@@ -194,6 +213,11 @@ async def review_all_files(state: ReviewState) -> dict:
             "messages": [],
             "errors": []
         }
+
+    # 위험도·provider 기반 diff 한도 계산
+    risk_level = risk_assessment.get("level")
+    diff_max_chars = get_diff_limit(risk_level)
+    logger.info(f"📏 diff 한도: {diff_max_chars:,}자 (위험도={risk_level}, provider={get_current_provider()})")
 
     retry_count = state.get("retry_count", 0) + 1
     logger.info(f"🚀 {total_files}개 파일 병렬 리뷰 시작... (실행 횟수: {retry_count})")
@@ -211,7 +235,7 @@ async def review_all_files(state: ReviewState) -> dict:
     review_tasks = [
         review_single_file(
             file, idx, total_files, pr_intent, risk_assessment,
-            context_files, files, repo_skills, previous_review
+            context_files, files, repo_skills, previous_review, diff_max_chars,
         )
         for idx, file in enumerate(files)
     ]
