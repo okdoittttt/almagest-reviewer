@@ -2,6 +2,7 @@
 Review Summary Prompt
 """
 from app.models import PRData
+from app.reviewer.prompts._sanitize import sanitize_skills
 
 
 def create_summary_prompt(
@@ -66,11 +67,17 @@ def create_summary_prompt(
 
     skills_section = ""
     if repo_skills:
-        skill_lines = [
-            f"- **{s.get('name', '?')}**: {s.get('description', '')}"
-            for s in repo_skills
-        ]
-        skills_section = "\n## 저장소 커스텀 리뷰 기준 (종합 평가 시 반드시 반영)\n" + "\n".join(skill_lines) + "\n"
+        safe_skills = sanitize_skills(repo_skills)
+        if safe_skills:
+            skill_lines = [
+                f"- **{s['name']}**: {s['description']}"
+                for s in safe_skills
+            ]
+            skills_section = (
+                "\n## 저장소 리뷰 가이드라인 (종합 평가 시 참고)\n"
+                + "\n".join(skill_lines)
+                + "\n"
+            )
 
     return f"""당신은 팀 리드 개발자로서 모든 파일 리뷰를 종합하여 최종 의견을 작성합니다.
 

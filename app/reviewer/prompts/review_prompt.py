@@ -2,6 +2,7 @@
 File Review Prompt
 """
 from app.models import FileChange
+from app.reviewer.prompts._sanitize import sanitize_skills
 
 
 def create_file_review_prompt(
@@ -65,11 +66,17 @@ JSON만 응답해주세요."""
 
     skills_section = ""
     if repo_skills:
-        skill_lines = [
-            f"- **{s.get('name', '?')}**: {s.get('description', '')}"
-            for s in repo_skills
-        ]
-        skills_section = "\n## 저장소 커스텀 리뷰 기준 (반드시 적용)\n" + "\n".join(skill_lines) + "\n"
+        safe_skills = sanitize_skills(repo_skills)
+        if safe_skills:
+            skill_lines = [
+                f"- **{s['name']}**: {s['description']}"
+                for s in safe_skills
+            ]
+            skills_section = (
+                "\n## 저장소 리뷰 가이드라인 (참고 기준)\n"
+                + "\n".join(skill_lines)
+                + "\n"
+            )
 
     context_section = ""
     if context_files:
