@@ -197,7 +197,18 @@ async def merge_pull_request(
     except httpx.HTTPStatusError as e:
         status = e.response.status_code
         if status == 403:
-            raise HTTPException(status_code=403, detail="GitHub App에 병합 권한이 없습니다. App 설정에서 Pull requests를 Read and write로 변경해주세요.")
+            gh_message = e.response.json().get("message", "") if e.response.content else ""
+            if "not allowed" in gh_message.lower():
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"이 저장소에서는 해당 병합 방식이 허용되지 않습니다. "
+                           f"저장소 설정(Settings → General → Merge button)에서 활성화해주세요. "
+                           f"(GitHub: {gh_message})"
+                )
+            raise HTTPException(
+                status_code=403,
+                detail="GitHub App에 병합 권한이 없습니다. App 설정에서 Pull requests를 Read and write로 변경해주세요.",
+            )
         if status == 405:
             raise HTTPException(status_code=422, detail="PR을 병합할 수 없습니다. 충돌 또는 병합 조건이 충족되지 않았습니다.")
         if status == 409:
@@ -206,6 +217,7 @@ async def merge_pull_request(
 
     pr.state = "merged"
     await session.flush()
+    await session.refresh(pr)
 
     review_count = await session.scalar(
         select(func.count()).select_from(Review).where(Review.pull_request_id == pr_id)
