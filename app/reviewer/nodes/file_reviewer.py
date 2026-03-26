@@ -13,13 +13,68 @@ from app.reviewer.llm import get_llm
 from app.reviewer.utils import parse_llm_json_response
 from app.models import FileChange
 
+# 라우터/뷰/API 파일이 포함된 경로 패턴 → 앱 진입점을 컨텍스트로 제공
+_ROUTE_PATH_PATTERNS = ("routers/", "routes/", "views/", "endpoints/", "api/")
+# 앱 진입점 후보 (순서대로 시도)
+_ENTRY_CANDIDATES = ("main.py", "app.py", "application.py", "server.py", "asgi.py")
+
+
+async def _fetch_context_files(
+    changed_files: list[FileChange],
+    installation_id: str,
+    repo_owner: str,
+    repo_name: str,
+    head_sha: str,
+) -> dict[str, str]:
+    """변경된 파일 목록을 분석해 리뷰에 필요한 컨텍스트 파일을 GitHub에서 가져옵니다.
+
+    현재 규칙:
+    - 라우터/엔드포인트 파일이 포함된 경우 앱 진입점(main.py 등)을 함께 제공합니다.
+
+    Args:
+        changed_files: PR에서 변경된 파일 목록.
+        installation_id: GitHub App Installation ID.
+        repo_owner: 리포지토리 소유자.
+        repo_name: 리포지토리 이름.
+        head_sha: HEAD 커밋 SHA (파일 내용 조회 기준).
+
+    Returns:
+        {파일경로: 파일내용} 딕셔너리. 가져오지 못한 파일은 포함되지 않습니다.
+    """
+    from app.github import github_client
+
+    needs_entry_file = any(
+        pattern in f.filename for f in changed_files for pattern in _ROUTE_PATH_PATTERNS
+    )
+    if not needs_entry_file:
+        return {}
+
+    context: dict[str, str] = {}
+    for candidate in _ENTRY_CANDIDATES:
+        try:
+            content = await github_client.get_file_content(
+                installation_id=installation_id,
+                repo_owner=repo_owner,
+                repo_name=repo_name,
+                file_path=candidate,
+                ref=head_sha,
+            )
+            context[candidate] = content
+            logger.info(f"📎 컨텍스트 파일 로드: {candidate}")
+            break  # 첫 번째로 찾은 진입점만 사용
+        except Exception:
+            continue
+
+    return context
+
 
 async def review_single_file(
     file: FileChange,
     file_index: int,
     total_files: int,
     pr_intent: dict,
-    risk_assessment: dict
+    risk_assessment: dict,
+    context_files: dict[str, str] | None = None,
 ) -> dict:
     """단일 파일을 리뷰하는 헬퍼 함수.
 
@@ -29,6 +84,7 @@ async def review_single_file(
         total_files: 전체 파일 수 (로깅용).
         pr_intent: PR 의도 분석 결과.
         risk_assessment: 위험도 평가 결과.
+        context_files: 리뷰에 필요한 관련 파일 내용. {파일경로: 내용} 형식.
 
     Returns:
         ``review``, ``message``, ``error`` 키를 포함하는 딕셔너리.
@@ -40,7 +96,7 @@ async def review_single_file(
         llm = get_llm(temperature=0.0)
 
         # 프롬프트 생성
-        prompt = create_file_review_prompt(file, pr_intent, risk_assessment)
+        prompt = create_file_review_prompt(file, pr_intent, risk_assessment, context_files)
 
         # LLM 호출
         response = await llm.ainvoke(prompt)
@@ -133,9 +189,18 @@ async def review_all_files(state: ReviewState) -> dict:
     retry_count = state.get("retry_count", 0) + 1
     logger.info(f"🚀 {total_files}개 파일 병렬 리뷰 시작... (실행 횟수: {retry_count})")
 
+    # 컨텍스트 파일 사전 수집 (라우터 등 관련 파일이 있을 때만)
+    context_files = await _fetch_context_files(
+        changed_files=files,
+        installation_id=state["installation_id"],
+        repo_owner=state["repo_owner"],
+        repo_name=state["repo_name"],
+        head_sha=pr_data.head_sha,
+    )
+
     # 모든 파일 리뷰를 병렬로 실행
     review_tasks = [
-        review_single_file(file, idx, total_files, pr_intent, risk_assessment)
+        review_single_file(file, idx, total_files, pr_intent, risk_assessment, context_files)
         for idx, file in enumerate(files)
     ]
 

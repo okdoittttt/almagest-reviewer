@@ -7,7 +7,8 @@ from app.models import FileChange
 def create_file_review_prompt(
     file: FileChange,
     pr_intent: dict,
-    risk_assessment: dict
+    risk_assessment: dict,
+    context_files: dict[str, str] | None = None,
 ) -> str:
     """개별 파일을 리뷰하는 프롬프트를 생성합니다.
 
@@ -15,6 +16,7 @@ def create_file_review_prompt(
         file: 파일 변경 정보.
         pr_intent: PR 의도 분석 결과.
         risk_assessment: 위험도 평가 결과.
+        context_files: 리뷰에 필요한 관련 파일 내용. {파일경로: 내용} 형식.
 
     Returns:
         LLM에 전달할 프롬프트 문자열.
@@ -47,13 +49,22 @@ JSON만 응답해주세요."""
     patch_preview = file.patch[:3000] if len(file.patch) > 3000 else file.patch
     is_truncated = len(file.patch) > 3000
 
+    context_section = ""
+    if context_files:
+        parts = []
+        for path, content in context_files.items():
+            preview = content[:2000] if len(content) > 2000 else content
+            truncated = " (처음 2000자)" if len(content) > 2000 else ""
+            parts.append(f"### `{path}`{truncated}\n```\n{preview}\n```")
+        context_section = "\n## 관련 파일 (변경되지 않은 컨텍스트)\n" + "\n\n".join(parts) + "\n"
+
     return f"""당신은 코드 품질과 보안을 중시하는 시니어 개발자입니다. 다음 파일의 변경사항을 상세히 리뷰해주세요.
 
 ## 컨텍스트
 **PR 의도:** {pr_intent.get('summary', 'N/A')} ({pr_intent.get('type', 'unknown')})
 **위험도:** {risk_assessment.get('level', 'UNKNOWN')} (점수: {risk_assessment.get('score', 0)}/10)
 **주요 검토 영역:** {', '.join(risk_assessment.get('review_focus_areas', [])[:3])}
-
+{context_section}
 ## 파일 정보
 **경로:** `{file.filename}`
 **상태:** {file.status}
