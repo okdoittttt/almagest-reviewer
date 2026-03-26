@@ -176,6 +176,44 @@ async def save_review_comments(
     return comments
 
 
+async def update_pr_state(
+    session: AsyncSession,
+    github_repo_id: int,
+    pr_number: int,
+    state: str,
+) -> PullRequest | None:
+    """PR 상태를 업데이트합니다.
+
+    Args:
+        session: 비동기 DB 세션.
+        github_repo_id: GitHub에서 발급한 저장소 ID.
+        pr_number: PR 번호.
+        state: 새 상태 ("open", "closed", "merged").
+
+    Returns:
+        업데이트된 PullRequest 인스턴스. PR이 존재하지 않으면 None.
+    """
+    repo_result = await session.execute(
+        select(Repository).where(Repository.github_repo_id == github_repo_id)
+    )
+    repo = repo_result.scalar_one_or_none()
+    if repo is None:
+        return None
+
+    pr_result = await session.execute(
+        select(PullRequest).where(
+            PullRequest.repository_id == repo.id,
+            PullRequest.pr_number == pr_number,
+        )
+    )
+    pr = pr_result.scalar_one_or_none()
+    if pr is None:
+        return None
+
+    pr.state = state
+    return pr
+
+
 async def persist_review_result(
     session: AsyncSession,
     installation_id: str,
