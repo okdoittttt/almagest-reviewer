@@ -36,11 +36,31 @@ if _FRONTEND_DIST.exists():
 
 @app.get("/health")
 async def health_check():
+    """서비스 헬스체크 엔드포인트.
+
+    Returns:
+        서비스 상태와 이름을 담은 딕셔너리.
+    """
     return {"status": "ok", "service": "almagest-reviewer"}
 
 
 @app.post("/webhook")
 async def github_webhook(request: Request, session: AsyncSession = Depends(get_db)):
+    """GitHub App 웹훅 이벤트를 처리한다.
+
+    pull_request 이벤트의 opened/synchronize 액션에서 AI 코드 리뷰를 실행하고,
+    closed 액션에서 로컬 DB의 PR 상태를 갱신한다.
+
+    Args:
+        request: 웹훅 요청 (X-Hub-Signature-256 서명 포함).
+        session: 비동기 DB 세션.
+
+    Returns:
+        처리 결과 JSON (``{"status": "success"}``).
+
+    Raises:
+        HTTPException: 웹훅 서명 검증 실패 시 403.
+    """
     # Webhook 서명 검증
     verified_body = await verify_webhook_signature(request)
 
@@ -128,6 +148,14 @@ async def github_webhook(request: Request, session: AsyncSession = Depends(get_d
 # SPA catch-all: /api/* 와 /webhook, /health 를 제외한 모든 경로를 index.html 로 서빙
 @app.get("/{full_path:path}")
 async def serve_spa(full_path: str):
+    """SPA catch-all 라우터. /api, /webhook, /health를 제외한 모든 경로에 index.html을 반환한다.
+
+    Args:
+        full_path: 요청 경로.
+
+    Returns:
+        프론트엔드 index.html 또는 서비스 상태 JSON (빌드 파일이 없는 경우).
+    """
     index = _FRONTEND_DIST / "index.html"
     if index.exists():
         return FileResponse(index)

@@ -7,18 +7,28 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.database.models.pull_request import PullRequest
-from app.database.models.repository import Repository
 from app.database.models.review import Review
 from app.database.models.review_comment import ReviewComment
-from app.github import github_client
 from app.schemas.review import ReviewCommentOut, ReviewDetail
+from app.services.review_service import create_comment_reply
 
 router = APIRouter(prefix="/reviews", tags=["reviews"])
 
 
 @router.get("/{review_id}", response_model=ReviewDetail)
 async def get_review(review_id: int, session: AsyncSession = Depends(get_db)) -> ReviewDetail:
+    """단일 리뷰의 상세 정보를 반환한다.
+
+    Args:
+        review_id: Review 내부 PK.
+        session: 비동기 DB 세션.
+
+    Returns:
+        ReviewDetail 스키마.
+
+    Raises:
+        HTTPException: review_id에 해당하는 리뷰가 없으면 404.
+    """
     review = await session.get(Review, review_id)
     if review is None:
         raise HTTPException(status_code=404, detail="Review not found")
@@ -27,6 +37,18 @@ async def get_review(review_id: int, session: AsyncSession = Depends(get_db)) ->
 
 @router.get("/{review_id}/comments", response_model=list[ReviewCommentOut])
 async def list_review_comments(review_id: int, session: AsyncSession = Depends(get_db)) -> list[ReviewCommentOut]:
+    """특정 리뷰에 속한 코멘트 목록을 반환한다.
+
+    Args:
+        review_id: Review 내부 PK.
+        session: 비동기 DB 세션.
+
+    Returns:
+        파일명 · id 순으로 정렬된 ReviewCommentOut 목록.
+
+    Raises:
+        HTTPException: review_id에 해당하는 리뷰가 없으면 404.
+    """
     review = await session.get(Review, review_id)
     if review is None:
         raise HTTPException(status_code=404, detail="Review not found")
@@ -47,42 +69,30 @@ class AddressedUpdate(BaseModel):
 
 
 @router.post("/{review_id}/comments/{comment_id}/replies", response_model=ReviewCommentOut)
-async def create_comment_reply(
+async def post_comment_reply(
     review_id: int,
     comment_id: int,
     body: ReplyCreate,
     session: AsyncSession = Depends(get_db),
 ) -> ReviewCommentOut:
-    parent = await session.get(ReviewComment, comment_id)
-    if parent is None or parent.review_id != review_id:
-        raise HTTPException(status_code=404, detail="Comment not found")
+    """리뷰 코멘트에 답글을 작성합니다.
 
-    review = await session.get(Review, review_id)
-    pr = await session.get(PullRequest, review.pull_request_id)
-    repo = await session.get(Repository, pr.repository_id)
+    Args:
+        review_id: 답글이 속할 Review PK.
+        comment_id: 답글 대상 ReviewComment PK.
+        body: 답글 내용.
+        session: 비동기 DB 세션.
 
-    reply = ReviewComment(
-        review_id=review_id,
-        parent_id=comment_id,
-        filename=parent.filename,
-        comment_type="reply",
-        body=body.body,
-    )
-    session.add(reply)
-    await session.flush()
-    await session.refresh(reply)
+    Returns:
+        저장된 답글 ReviewComment.
 
+    Raises:
+        HTTPException: comment_id가 해당 review에 속하지 않으면 404.
+    """
     try:
-        await github_client.create_pr_review_reply(
-            installation_id=repo.installation_id,
-            repo_owner=repo.owner,
-            repo_name=repo.name,
-            pull_number=pr.pr_number,
-            body=body.body,
-        )
-    except Exception:
-        pass  # GitHub 게시 실패해도 로컬 저장은 유지
-
+        reply = await create_comment_reply(session, review_id, comment_id, body.body)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Comment not found")
     return ReviewCommentOut.model_validate(reply)
 
 
@@ -93,6 +103,20 @@ async def update_comment_addressed(
     body: AddressedUpdate,
     session: AsyncSession = Depends(get_db),
 ) -> ReviewCommentOut:
+    """코멘트의 처리 완료 여부를 업데이트한다.
+
+    Args:
+        review_id: Review 내부 PK.
+        comment_id: ReviewComment 내부 PK.
+        body: is_addressed 값.
+        session: 비동기 DB 세션.
+
+    Returns:
+        업데이트된 ReviewCommentOut.
+
+    Raises:
+        HTTPException: comment_id가 없거나 해당 review에 속하지 않으면 404.
+    """
     comment = await session.get(ReviewComment, comment_id)
     if comment is None or comment.review_id != review_id:
         raise HTTPException(status_code=404, detail="Comment not found")

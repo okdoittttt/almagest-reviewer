@@ -3,6 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models import PullRequest, Repository, Review, ReviewComment
+from app.github import github_client
 from app.models import PRData
 
 
@@ -212,6 +213,73 @@ async def update_pr_state(
 
     pr.state = state
     return pr
+
+
+async def create_comment_reply(
+    session: AsyncSession,
+    review_id: int,
+    parent_comment_id: int,
+    body: str,
+) -> ReviewComment:
+    """리뷰 코멘트에 답글을 작성하고 GitHub에 게시합니다.
+
+    Args:
+        session: 비동기 DB 세션.
+        review_id: 답글이 속할 Review PK.
+        parent_comment_id: 답글 대상 ReviewComment PK.
+        body: 답글 내용.
+
+    Returns:
+        저장된 ReviewComment 인스턴스 (comment_type="reply").
+
+    Raises:
+        ValueError: parent_comment가 해당 review에 속하지 않는 경우.
+    """
+    parent_result = await session.execute(
+        select(ReviewComment).where(ReviewComment.id == parent_comment_id)
+    )
+    parent = parent_result.scalar_one_or_none()
+    if parent is None or parent.review_id != review_id:
+        raise ValueError(f"Comment {parent_comment_id} not found in review {review_id}")
+
+    review_result = await session.execute(
+        select(Review).where(Review.id == review_id)
+    )
+    review = review_result.scalar_one()
+
+    pr_result = await session.execute(
+        select(PullRequest).where(PullRequest.id == review.pull_request_id)
+    )
+    pr = pr_result.scalar_one()
+
+    repo_result = await session.execute(
+        select(Repository).where(Repository.id == pr.repository_id)
+    )
+    repo = repo_result.scalar_one()
+
+    reply = ReviewComment(
+        review_id=review_id,
+        parent_id=parent_comment_id,
+        filename=parent.filename,
+        comment_type="reply",
+        body=body,
+    )
+    session.add(reply)
+    await session.flush()
+    await session.refresh(reply)
+
+    try:
+        await github_client.create_pr_comment(
+            installation_id=repo.installation_id,
+            repo_owner=repo.owner,
+            repo_name=repo.name,
+            pull_number=pr.pr_number,
+            comment_body=body,
+        )
+    except Exception:
+        pass  # GitHub 게시 실패해도 로컬 저장은 유지
+
+    return reply
 
 
 async def persist_review_result(
