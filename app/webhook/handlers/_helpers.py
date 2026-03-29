@@ -15,6 +15,7 @@ async def run_full_review_pipeline(
     repo_owner: str,
     repo_name: str,
     pr_number: int,
+    trigger_source: str = "push",
 ) -> None:
     """PR 데이터 수집 → LangGraph 리뷰 → DB 저장 → GitHub 코멘트 게시 파이프라인.
 
@@ -26,6 +27,7 @@ async def run_full_review_pipeline(
         repo_owner: 저장소 소유자 login.
         repo_name: 저장소 이름.
         pr_number: PR 번호.
+        trigger_source: 리뷰 트리거 출처 (push, ready_for_review, re_review_command, label_removed).
     """
     logger.info(f"📋 PR 데이터 수집 시작: {repo_owner}/{repo_name} #{pr_number}")
     pr_data = await pr_collector.collect_pr_data(
@@ -60,6 +62,7 @@ async def run_full_review_pipeline(
         github_pr_id=github_pr_id,
         pr_data=pr_data,
         review_result=review_result,
+        trigger_source=trigger_source,
     )
     logger.info("💾 DB 저장 완료")
 

@@ -2,7 +2,7 @@
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .handlers import handle_installation, handle_installation_repositories, handle_pull_request
+from .handlers import handle_installation, handle_installation_repositories, handle_issue_comment, handle_pull_request
 
 
 async def dispatch_event(
@@ -25,5 +25,7 @@ async def dispatch_event(
         await handle_installation(action, payload, session)
     elif event == "installation_repositories":
         await handle_installation_repositories(action, payload, session)
+    elif event == "issue_comment":
+        await handle_issue_comment(action, payload, session)
     else:
         logger.debug(f"처리하지 않는 이벤트: {event}")

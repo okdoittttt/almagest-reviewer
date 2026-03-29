@@ -2,9 +2,12 @@
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.github import github_client
 from app.services.review_service import review_exists_for_head_sha, update_pr_state
 
 from ._helpers import run_full_review_pipeline
+
+SKIP_REVIEW_LABELS = {"skip-review", "wip"}
 
 
 async def handle_pull_request(
@@ -70,6 +73,58 @@ async def handle_pull_request(
             repo_owner=repo_owner,
             repo_name=repo_name,
             pr_number=pr_number,
+            trigger_source="ready_for_review",
+        )
+
+    elif action == "labeled":
+        label_name = payload["label"]["name"].lower()
+        if label_name in SKIP_REVIEW_LABELS:
+            installation_id = str(payload["installation"]["id"])
+            repo_owner = repo["owner"]["login"]
+            repo_name = repo["name"]
+            logger.info(f"PR #{pr_number} 스킵 라벨 '{label_name}' 추가, 리뷰 건너뜀")
+            await github_client.create_pr_comment(
+                installation_id=installation_id,
+                repo_owner=repo_owner,
+                repo_name=repo_name,
+                pull_number=pr_number,
+                comment_body=f"`{payload['label']['name']}` 라벨로 인해 코드 리뷰를 건너뜁니다.",
+            )
+
+    elif action == "unlabeled":
+        label_name = payload["label"]["name"].lower()
+        if label_name not in SKIP_REVIEW_LABELS:
+            return
+
+        installation_id = str(payload["installation"]["id"])
+        repo_owner = repo["owner"]["login"]
+        repo_name = repo["name"]
+
+        pr_details = await github_client.get_pr_details(
+            installation_id=installation_id,
+            repo_owner=repo_owner,
+            repo_name=repo_name,
+            pull_number=pr_number,
+        )
+        current_labels = {label["name"].lower() for label in pr_details.get("labels", [])}
+        if current_labels & SKIP_REVIEW_LABELS:
+            logger.info(f"PR #{pr_number} 스킵 라벨 여전히 존재 {current_labels & SKIP_REVIEW_LABELS}, 리뷰 건너뜀")
+            return
+
+        if pr_details.get("draft"):
+            logger.info(f"PR #{pr_number} 드래프트 상태, 리뷰 건너뜀")
+            return
+
+        logger.info(f"PR #{pr_number} 스킵 라벨 '{label_name}' 제거, 리뷰 실행")
+        await run_full_review_pipeline(
+            session=session,
+            installation_id=installation_id,
+            github_repo_id=github_repo_id,
+            github_pr_id=pr["id"],
+            repo_owner=repo_owner,
+            repo_name=repo_name,
+            pr_number=pr_number,
+            trigger_source="label_removed",
         )
 
     else:

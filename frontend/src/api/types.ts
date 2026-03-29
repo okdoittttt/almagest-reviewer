@@ -38,6 +38,7 @@ export interface Review {
   risk_level: string | null
   risk_score: number | null
   review_decision: string | null
+  trigger_source: string
   retry_count: number
   pr_intent?: Record<string, unknown>
   risk_assessment?: Record<string, unknown>

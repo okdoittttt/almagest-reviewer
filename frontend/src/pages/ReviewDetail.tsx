@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import { getReview, getReviewComments, updateCommentAddressed, createCommentReply } from '../api/client'
 import type { Review, ReviewComment } from '../api/types'
-import { Badge, DecisionBadge, RiskBadge } from '../components/Badge'
+import { Badge, DecisionBadge, RiskBadge, TriggerSourceBadge } from '../components/Badge'
 
 type FileReview = {
   filename?: string
@@ -87,6 +87,7 @@ export function ReviewDetail() {
         <div className="flex items-center gap-3 flex-wrap">
           <DecisionBadge decision={review.review_decision} />
           <RiskBadge level={review.risk_level} />
+          <TriggerSourceBadge source={review.trigger_source} />
           {review.risk_score != null && (
             <span className="text-sm text-secondary">Risk Score: <strong className="text-primary">{review.risk_score.toFixed(2)}</strong></span>
           )}

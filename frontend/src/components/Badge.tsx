@@ -39,3 +39,15 @@ export function DecisionBadge({ decision }: { decision: string | null }) {
   }
   return <Badge label={decision} variant={map[decision] ?? 'gray'} />
 }
+
+const triggerSourceLabels: Record<string, string> = {
+  push: '커밋',
+  ready_for_review: 'Ready for Review',
+  re_review_command: '/re-review',
+  label_removed: '라벨 제거',
+}
+
+export function TriggerSourceBadge({ source }: { source: string }) {
+  const label = triggerSourceLabels[source] ?? source
+  return <Badge label={label} variant="purple" />
+}
