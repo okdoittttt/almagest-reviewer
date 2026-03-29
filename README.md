@@ -102,21 +102,27 @@ cp .env.example .env
 
 #### Option A: Docker Compose (Recommended)
 
-앱 서버, PostgreSQL DB, 프론트엔드 개발 서버를 함께 실행합니다. DB가 완전히 준비된 후 앱이 시작되며, Alembic 마이그레이션도 자동으로 수행됩니다.
+앱 서버, PostgreSQL DB, 프론트엔드 개발 서버를 함께 실행합니다.
+`deploy.sh` 스크립트를 사용하면 빌드, 마이그레이션, 기동을 한 번에 처리하고 현황을 확인할 수 있습니다.
 
 ```bash
-docker compose up -d --build
+chmod +x deploy.sh
 ```
+
+| 명령어 | 설명 |
+|--------|------|
+| `./deploy.sh deploy` | 이미지 빌드 → 마이그레이션 → 전체 기동 (전체 배포) |
+| `./deploy.sh up` | 컨테이너 기동 (빌드 없음) |
+| `./deploy.sh down` | 컨테이너 종료 |
+| `./deploy.sh status` | 마이그레이션 버전 및 미적용 항목 확인 |
+| `./deploy.sh migrate` | 마이그레이션만 실행 (`alembic upgrade head`) |
+| `./deploy.sh db` | DB 컨테이너만 기동 |
+| `./deploy.sh logs` | 앱 로그 확인 (예: `./deploy.sh logs db`) |
 
 | 주소 | 설명 |
 |------|------|
 | `http://localhost:8000` | API 서버 + 빌드된 웹 대시보드 |
 | `http://localhost:5173` | 프론트엔드 개발 서버 (hot-reload) |
-
-로그 확인:
-```bash
-docker compose logs -f app
-```
 
 > 웹 대시보드(`http://localhost:8000`)에 접속하면 GitHub OAuth 로그인 화면이 나타납니다.
 > GitHub App 설정의 **Callback URL**에 `http://localhost:8000/api/auth/callback`이 등록되어 있어야 합니다.
