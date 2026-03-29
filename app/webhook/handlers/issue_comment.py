@@ -10,6 +10,7 @@ from app.services.review_service import get_most_recent_review
 from ._helpers import run_full_review_pipeline
 
 REVIEW_COOLDOWN_SECONDS = 60
+ALLOWED_ASSOCIATIONS = {"OWNER", "MEMBER", "COLLABORATOR"}
 
 
 async def handle_issue_comment(
@@ -43,6 +44,27 @@ async def handle_issue_comment(
     repo_owner: str = repo["owner"]["login"]
     repo_name: str = repo["name"]
     pr_number: int = payload["issue"]["number"]
+
+    # 권한 검사
+    author_association: str = payload["comment"]["author_association"]
+    commenter_login: str = payload["comment"]["user"]["login"]
+    pr_author_login: str = payload["issue"]["user"]["login"]
+
+    is_authorized = (
+        author_association in ALLOWED_ASSOCIATIONS
+        or commenter_login == pr_author_login
+    )
+
+    if not is_authorized:
+        logger.info(f"PR #{pr_number} /re-review 권한 없음: {commenter_login} ({author_association})")
+        await github_client.create_pr_comment(
+            installation_id=installation_id,
+            repo_owner=repo_owner,
+            repo_name=repo_name,
+            pull_number=pr_number,
+            comment_body="/re-review 커맨드는 저장소 협력자 또는 PR 작성자만 실행할 수 있습니다.",
+        )
+        return
 
     # 쿨다운 체크
     recent_review = await get_most_recent_review(session, github_repo_id, pr_number)

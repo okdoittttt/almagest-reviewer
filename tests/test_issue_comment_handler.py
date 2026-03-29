@@ -6,10 +6,18 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from app.webhook.handlers.issue_comment import handle_issue_comment, REVIEW_COOLDOWN_SECONDS
 
 
-def make_payload(body: str = "/re-review", state: str = "open", is_pr: bool = True) -> dict:
-    issue = {
+def make_payload(
+    body: str = "/re-review",
+    state: str = "open",
+    is_pr: bool = True,
+    author_association: str = "COLLABORATOR",
+    commenter_login: str = "reviewer",
+    pr_author_login: str = "pr-author",
+) -> dict:
+    issue: dict = {
         "number": 1,
         "state": state,
+        "user": {"login": pr_author_login},
     }
     if is_pr:
         issue["pull_request"] = {"url": "https://api.github.com/repos/test/test/pulls/1"}
@@ -23,7 +31,11 @@ def make_payload(body: str = "/re-review", state: str = "open", is_pr: bool = Tr
             "owner": {"login": "test-user"},
         },
         "issue": issue,
-        "comment": {"body": body},
+        "comment": {
+            "body": body,
+            "author_association": author_association,
+            "user": {"login": commenter_login},
+        },
     }
 
 
@@ -125,3 +137,43 @@ async def test_re_review_passes_correct_trigger_source(mock_pipeline, mock_detai
 
     _, kwargs = mock_pipeline.call_args
     assert kwargs["trigger_source"] == "re_review_command"
+
+
+# ── 권한 검사 ─────────────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+@patch("app.webhook.handlers.issue_comment.github_client.get_pr_details", new_callable=AsyncMock, return_value={"id": 999})
+@patch("app.webhook.handlers.issue_comment.run_full_review_pipeline", new_callable=AsyncMock)
+async def test_collaborator_is_authorized(mock_pipeline, mock_details, mock_session):
+    """COLLABORATOR → 파이프라인 실행."""
+    with patch("app.webhook.handlers.issue_comment.get_most_recent_review", new_callable=AsyncMock, return_value=None):
+        await handle_issue_comment("created", make_payload(author_association="COLLABORATOR"), mock_session)
+    mock_pipeline.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@patch("app.webhook.handlers.issue_comment.github_client.get_pr_details", new_callable=AsyncMock, return_value={"id": 999})
+@patch("app.webhook.handlers.issue_comment.run_full_review_pipeline", new_callable=AsyncMock)
+async def test_pr_author_is_authorized(mock_pipeline, mock_details, mock_session):
+    """외부인(NONE)이라도 본인 PR이면 파이프라인 실행."""
+    with patch("app.webhook.handlers.issue_comment.get_most_recent_review", new_callable=AsyncMock, return_value=None):
+        await handle_issue_comment(
+            "created",
+            make_payload(author_association="NONE", commenter_login="pr-author", pr_author_login="pr-author"),
+            mock_session,
+        )
+    mock_pipeline.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@patch("app.webhook.handlers.issue_comment.github_client.create_pr_comment", new_callable=AsyncMock)
+@patch("app.webhook.handlers.issue_comment.run_full_review_pipeline", new_callable=AsyncMock)
+async def test_unauthorized_user_blocked(mock_pipeline, mock_comment, mock_session):
+    """외부인(NONE) + 다른 사람 PR → 파이프라인 스킵, 안내 코멘트 게시."""
+    await handle_issue_comment(
+        "created",
+        make_payload(author_association="NONE", commenter_login="outsider", pr_author_login="pr-author"),
+        mock_session,
+    )
+    mock_pipeline.assert_not_awaited()
+    mock_comment.assert_awaited_once()
