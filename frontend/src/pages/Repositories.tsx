@@ -1,18 +1,22 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { getRepositories, toggleRepository } from '../api/client'
+import { getConnectUrl, getRepositories, toggleRepository } from '../api/client'
 import type { Repository } from '../api/types'
 import { Badge } from '../components/Badge'
 
 export function Repositories() {
   const [repos, setRepos] = useState<Repository[]>([])
   const [loading, setLoading] = useState(true)
+  const [connectUrl, setConnectUrl] = useState<string | null>(null)
 
   useEffect(() => {
     getRepositories()
       .then(data => setRepos(data))
       .catch(console.error)
       .finally(() => setLoading(false))
+    getConnectUrl()
+      .then(data => setConnectUrl(data.url))
+      .catch(console.error)
   }, [])
 
   const handleToggle = async (repo: Repository) => {
@@ -24,11 +28,34 @@ export function Repositories() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-primary">Repositories</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-primary">Repositories</h1>
+        {connectUrl && (
+          <a
+            href={connectUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm font-medium text-accent hover:bg-accent/10 px-4 py-2 rounded-lg border border-accent/30 hover:border-accent/50 transition-all duration-150"
+          >
+            + 레포지토리 연결
+          </a>
+        )}
+      </div>
       {repos.length === 0 ? (
-        <div className="bg-surface rounded-xl border border-white/[0.07] p-10 text-center">
+        <div className="bg-surface rounded-xl border border-white/[0.07] p-10 text-center space-y-4">
           <p className="text-secondary">연동된 저장소가 없습니다.</p>
-          <p className="text-sm text-muted mt-2">GitHub App을 설치한 저장소에서 PR을 열면 자동으로 등록됩니다.</p>
+          {connectUrl ? (
+            <a
+              href={connectUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block text-sm font-medium text-accent hover:bg-accent/10 px-5 py-2.5 rounded-lg border border-accent/30 hover:border-accent/50 transition-all duration-150"
+            >
+              GitHub App 설치하기
+            </a>
+          ) : (
+            <p className="text-sm text-muted">GitHub App을 설치한 저장소에서 PR을 열면 자동으로 등록됩니다.</p>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
