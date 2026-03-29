@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.database import get_db
 from app.database.models.pull_request import PullRequest
 from app.database.models.repository import Repository
@@ -12,6 +13,19 @@ from app.schemas.repository import RepositoryListItem
 from app.services.review_service import update_pr_state
 
 router = APIRouter(prefix="/repositories", tags=["repositories"])
+
+
+@router.get("/connect-url")
+async def get_connect_url() -> dict:
+    """GitHub App 설치 URL을 반환한다.
+
+    Returns:
+        ``{"url": "https://github.com/apps/{app_name}/installations/new"}``
+        GITHUB_APP_NAME이 설정되지 않은 경우 url은 None.
+    """
+    if not settings.github_app_name:
+        return {"url": None}
+    return {"url": f"https://github.com/apps/{settings.github_app_name}/installations/new"}
 
 
 async def _list_repositories(session: AsyncSession) -> list[RepositoryListItem]:

@@ -35,6 +35,8 @@ export const getStats = () => api.get<Stats>('/stats').then(r => r.data)
 export const getRepositories = () => api.get<Repository[]>('/repositories').then(r => r.data)
 export const toggleRepository = (id: number) =>
   api.patch<Repository>(`/repositories/${id}/toggle`).then(r => r.data)
+export const getConnectUrl = () =>
+  api.get<{ url: string | null }>('/repositories/connect-url').then(r => r.data)
 
 // Pull Requests
 export const getPullRequests = (params?: {

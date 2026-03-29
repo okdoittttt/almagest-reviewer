@@ -177,6 +177,30 @@ async def save_review_comments(
     return comments
 
 
+async def deactivate_repositories(
+    session: AsyncSession,
+    github_repo_ids: list[int],
+) -> int:
+    """레포지토리 목록을 비활성화합니다. 리뷰 히스토리 보존을 위해 삭제하지 않습니다.
+
+    Args:
+        session: 비동기 DB 세션.
+        github_repo_ids: 비활성화할 GitHub 레포 ID 목록.
+
+    Returns:
+        비활성화된 레포 수.
+    """
+    if not github_repo_ids:
+        return 0
+    result = await session.execute(
+        select(Repository).where(Repository.github_repo_id.in_(github_repo_ids))
+    )
+    repos = result.scalars().all()
+    for repo in repos:
+        repo.is_active = False
+    return len(repos)
+
+
 async def update_pr_state(
     session: AsyncSession,
     github_repo_id: int,

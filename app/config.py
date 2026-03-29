@@ -25,6 +25,7 @@ class Settings(BaseSettings):
 
     # GitHub App 인증 정보
     github_app_id: str
+    github_app_name: str = ""
     github_private_key_path: Path
     github_webhook_secret: str
     github_installation_id: str | None = None
