@@ -44,6 +44,7 @@ class Review(Base, TimestampMixin):
     file_reviews: Mapped[list] = mapped_column(JSONB, default=list, nullable=False, server_default="[]")
     final_review: Mapped[str | None] = mapped_column(Text)
     review_decision: Mapped[str | None] = mapped_column(String(50))
+    trigger_source: Mapped[str] = mapped_column(String(50), nullable=False, server_default="push")
     retry_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     errors: Mapped[list] = mapped_column(JSONB, default=list, nullable=False, server_default="[]")
 

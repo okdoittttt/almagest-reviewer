@@ -99,6 +99,7 @@ async def save_review(
     pull_request_id: int,
     pr_data: PRData,
     review_result: dict,
+    trigger_source: str = "push",
 ) -> Review:
     """리뷰 결과를 DB에 저장합니다. 같은 PR이라도 커밋마다 새 row를 생성합니다.
 
@@ -122,6 +123,7 @@ async def save_review(
         file_reviews=review_result.get("file_reviews", []),
         final_review=review_result.get("final_review"),
         review_decision=review_result.get("review_decision"),
+        trigger_source=trigger_source,
         retry_count=review_result.get("retry_count", 0),
         errors=review_result.get("errors", []),
     )
@@ -313,6 +315,7 @@ async def persist_review_result(
     github_pr_id: int,
     pr_data: PRData,
     review_result: dict,
+    trigger_source: str = "push",
 ) -> Review:
     """리뷰 결과 전체를 DB에 영속화하는 진입점.
 
@@ -357,6 +360,7 @@ async def persist_review_result(
         pull_request_id=pr.id,
         pr_data=pr_data,
         review_result=review_result,
+        trigger_source=trigger_source,
     )
 
     await save_review_comments(
@@ -366,6 +370,35 @@ async def persist_review_result(
     )
 
     return review
+
+
+async def get_most_recent_review(
+    session: AsyncSession,
+    github_repo_id: int,
+    pr_number: int,
+) -> "Review | None":
+    """해당 PR의 가장 최근 Review 레코드를 반환합니다.
+
+    Args:
+        session: 비동기 DB 세션.
+        github_repo_id: GitHub 저장소 ID.
+        pr_number: PR 번호.
+
+    Returns:
+        가장 최근 Review 인스턴스, 없으면 None.
+    """
+    result = await session.execute(
+        select(Review)
+        .join(PullRequest, Review.pull_request_id == PullRequest.id)
+        .join(Repository, PullRequest.repository_id == Repository.id)
+        .where(
+            Repository.github_repo_id == github_repo_id,
+            PullRequest.pr_number == pr_number,
+        )
+        .order_by(Review.created_at.desc())
+        .limit(1)
+    )
+    return result.scalar_one_or_none()
 
 
 async def review_exists_for_head_sha(
