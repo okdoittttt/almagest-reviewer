@@ -95,7 +95,7 @@ async def load_previous_review(state: ReviewState) -> dict:
             for c in unresolved:
                 key = c.filename or "_unknown"
                 unresolved_by_file.setdefault(key, []).append(
-                    {"type": c.comment_type, "body": c.body}
+                    {"id": c.id, "type": c.comment_type, "body": c.body}
                 )
 
             previous_review = {

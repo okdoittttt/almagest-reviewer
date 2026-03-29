@@ -1,5 +1,7 @@
 """리뷰 결과 영속화 서비스."""
-from sqlalchemy import select
+from datetime import datetime, timezone
+
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models import PullRequest, Repository, Review, ReviewComment
@@ -430,3 +432,30 @@ async def review_exists_for_head_sha(
         .limit(1)
     )
     return result.scalar_one_or_none() is not None
+
+
+async def mark_comments_addressed(
+    session: AsyncSession,
+    comment_ids: list[int],
+) -> int:
+    """ReviewComment 목록을 is_addressed=True로 업데이트합니다.
+
+    Args:
+        session: 비동기 DB 세션.
+        comment_ids: 처리 완료로 표시할 ReviewComment ID 목록.
+
+    Returns:
+        업데이트된 레코드 수.
+    """
+    if not comment_ids:
+        return 0
+
+    result = await session.execute(
+        update(ReviewComment)
+        .where(ReviewComment.id.in_(comment_ids))
+        .values(
+            is_addressed=True,
+            addressed_at=datetime.now(timezone.utc),
+        )
+    )
+    return result.rowcount

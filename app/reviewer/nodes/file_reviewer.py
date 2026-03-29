@@ -125,6 +125,7 @@ async def review_single_file(
             file_review.setdefault("status", "UNKNOWN")
             file_review.setdefault("issues", [])
             file_review.setdefault("suggestions", [])
+            file_review.setdefault("resolved_comment_ids", [])
             file_review.setdefault("summary", "리뷰 완료")
 
             issues_count = len(file_review.get("issues", []))

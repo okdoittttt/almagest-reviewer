@@ -86,11 +86,12 @@ JSON만 응답해주세요."""
     if previous_review:
         unresolved = previous_review.get("unresolved_by_file", {}).get(file.filename, [])
         if unresolved:
-            lines = [f"- [{c['type']}] {c['body']}" for c in unresolved]
+            lines = [f"- [#{c['id']}][{c['type']}] {c['body']}" for c in unresolved]
             prev_issues_section = (
                 "\n## 이전 리뷰에서 미해결된 이슈 (이 파일)\n"
                 + "\n".join(lines)
-                + "\n이 이슈들이 이번 변경에서 해결됐는지 확인하고, 결과를 리뷰에 명시해주세요.\n"
+                + "\n이 이슈들이 이번 변경에서 해결됐는지 확인하세요. "
+                + "해결된 이슈의 ID를 resolved_comment_ids에 포함해주세요.\n"
             )
 
     context_section = ""
@@ -145,6 +146,7 @@ JSON만 응답해주세요."""
     "잘된 부분 1",
     "잘된 부분 2"
   ],
+  "resolved_comment_ids": [이전 리뷰에서 이번 변경으로 해결된 코멘트 ID 목록. 없으면 빈 배열],
   "summary": "이 파일 변경에 대한 전체 평가 (2-3문장)"
 }}
 ```

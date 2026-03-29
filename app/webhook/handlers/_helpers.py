@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.github import github_client, pr_collector
 from app.reviewer import run_review
-from app.services.review_service import persist_review_result
+from app.services.review_service import mark_comments_addressed, persist_review_result
 
 
 async def run_full_review_pipeline(
@@ -53,6 +53,14 @@ async def run_full_review_pipeline(
         f"🤖 AI 코드 리뷰 완료: decision={review_result.get('review_decision')}, "
         f"errors={review_result.get('errors')}"
     )
+
+    # 이전 리뷰 코멘트 중 이번 변경으로 해결된 항목 자동 업데이트
+    resolved_ids: list[int] = []
+    for fr in review_result.get("file_reviews", []):
+        resolved_ids.extend(fr.get("resolved_comment_ids", []))
+    if resolved_ids:
+        logger.info(f"✅ 해결된 이전 이슈 {len(resolved_ids)}개 자동 처리: {resolved_ids}")
+        await mark_comments_addressed(session, resolved_ids)
 
     logger.info("💾 DB 저장 시작")
     await persist_review_result(
