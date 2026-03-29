@@ -366,3 +366,34 @@ async def persist_review_result(
     )
 
     return review
+
+
+async def review_exists_for_head_sha(
+    session: AsyncSession,
+    github_repo_id: int,
+    pr_number: int,
+    head_sha: str,
+) -> bool:
+    """해당 PR의 특정 head_sha로 이미 리뷰가 존재하는지 확인합니다.
+
+    Args:
+        session: 비동기 DB 세션.
+        github_repo_id: GitHub 저장소 ID.
+        pr_number: PR 번호.
+        head_sha: 확인할 커밋 SHA.
+
+    Returns:
+        동일 head_sha의 Review 레코드가 존재하면 True.
+    """
+    result = await session.execute(
+        select(Review)
+        .join(PullRequest, Review.pull_request_id == PullRequest.id)
+        .join(Repository, PullRequest.repository_id == Repository.id)
+        .where(
+            Repository.github_repo_id == github_repo_id,
+            PullRequest.pr_number == pr_number,
+            Review.head_sha == head_sha,
+        )
+        .limit(1)
+    )
+    return result.scalar_one_or_none() is not None
