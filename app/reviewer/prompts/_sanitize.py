@@ -3,6 +3,7 @@ import re
 
 _MAX_NAME_LEN = 100
 _MAX_DESC_LEN = 500
+_MAX_CRITERIA_LEN = 2000
 
 # LLM 프롬프트 구조를 무너뜨릴 수 있는 패턴
 _INJECTION_PATTERNS = re.compile(
@@ -17,7 +18,7 @@ _INJECTION_PATTERNS = re.compile(
 
 
 def sanitize_skill_text(text: str | None, max_len: int) -> str:
-    """Skills 이름/설명에서 프롬프트 인젝션 위험 패턴을 제거합니다.
+    """Skills 이름/설명/기준에서 프롬프트 인젝션 위험 패턴을 제거합니다.
 
     Args:
         text: 살균할 원본 문자열.
@@ -43,12 +44,13 @@ def sanitize_skills(repo_skills: list[dict]) -> list[dict]:
         repo_skills: 저장소 Skills 목록.
 
     Returns:
-        name·description이 살균된 Skills 목록.
+        name·description·criteria가 살균된 Skills 목록.
     """
     sanitized = []
     for s in repo_skills:
         name = sanitize_skill_text(s.get("name"), _MAX_NAME_LEN)
         description = sanitize_skill_text(s.get("description"), _MAX_DESC_LEN)
+        criteria = sanitize_skill_text(s.get("criteria"), _MAX_CRITERIA_LEN)
         if name:  # 이름이 없으면 스킵
-            sanitized.append({**s, "name": name, "description": description})
+            sanitized.append({**s, "name": name, "description": description, "criteria": criteria})
     return sanitized

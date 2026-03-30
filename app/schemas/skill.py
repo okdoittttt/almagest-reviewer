@@ -9,7 +9,8 @@ class SkillOut(BaseModel):
     repository_id: int
     name: str
     description: str | None
-    criteria: dict
+    criteria: str | None
+    file_patterns: list[str] = []
     is_enabled: bool
     created_at: datetime
     updated_at: datetime
@@ -20,12 +21,14 @@ class SkillOut(BaseModel):
 class SkillCreate(BaseModel):
     name: str
     description: str | None = None
-    criteria: dict = {}
+    criteria: str | None = None
+    file_patterns: list[str] = []
     is_enabled: bool = True
 
 
 class SkillUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
-    criteria: dict | None = None
+    criteria: str | None = None
+    file_patterns: list[str] | None = None
     is_enabled: bool | None = None

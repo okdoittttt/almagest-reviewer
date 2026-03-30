@@ -47,7 +47,12 @@ async def load_repo_skills(state: ReviewState) -> dict:
             skills = skills_result.scalars().all()
 
             repo_skills = [
-                {"name": s.name, "description": s.description, "criteria": s.criteria}
+                {
+                    "name": s.name,
+                    "description": s.description,
+                    "criteria": s.criteria,
+                    "file_patterns": s.file_patterns or [],
+                }
                 for s in skills
             ]
 
