@@ -67,7 +67,8 @@ export interface Skill {
   repository_id: number
   name: string
   description: string | null
-  criteria: Record<string, unknown>
+  criteria: string | null
+  file_patterns: string[]
   is_enabled: boolean
   created_at: string
   updated_at: string
@@ -87,13 +88,15 @@ export interface Stats {
 export interface SkillCreate {
   name: string
   description?: string
-  criteria?: Record<string, unknown>
+  criteria?: string | null
+  file_patterns?: string[]
   is_enabled?: boolean
 }
 
 export interface SkillUpdate {
   name?: string
   description?: string
-  criteria?: Record<string, unknown>
+  criteria?: string | null
+  file_patterns?: string[]
   is_enabled?: boolean
 }

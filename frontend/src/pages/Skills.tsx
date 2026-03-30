@@ -1,14 +1,38 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { createSkill, deleteSkill, getSkills, updateSkill } from '../api/client'
-import type { Skill, SkillCreate } from '../api/types'
+import type { Skill } from '../api/types'
 
-const EMPTY_FORM: SkillCreate = {
-  name: '',
-  description: '',
-  criteria: { focus_areas: [], ignore_patterns: [] },
-  is_enabled: true,
+// ── criteria 직렬화 / 역직렬화 ────────────────────────────────────────────────
+
+function serializeCriteria(focusAreas: string[], ignorePatterns: string[]): string | null {
+  const parts: string[] = []
+  if (focusAreas.length > 0)
+    parts.push('집중 영역:\n' + focusAreas.map(a => `- ${a}`).join('\n'))
+  if (ignorePatterns.length > 0)
+    parts.push('무시 항목:\n' + ignorePatterns.map(p => `- ${p}`).join('\n'))
+  return parts.length > 0 ? parts.join('\n\n') : null
 }
+
+function parseCriteriaText(text: string | null): { focusAreas: string[]; ignorePatterns: string[] } {
+  if (!text) return { focusAreas: [], ignorePatterns: [] }
+
+  const parseSection = (label: string): string[] => {
+    const match = text.match(new RegExp(`${label}:\\n([\\s\\S]*?)(?:\\n\\n|$)`))
+    if (!match) return []
+    return match[1]
+      .split('\n')
+      .map(l => l.replace(/^- /, '').trim())
+      .filter(Boolean)
+  }
+
+  return {
+    focusAreas: parseSection('집중 영역'),
+    ignorePatterns: parseSection('무시 항목'),
+  }
+}
+
+// ── 공통 스타일 ───────────────────────────────────────────────────────────────
 
 const inputClass = [
   'w-full rounded-lg px-3 py-2 text-sm text-primary',
@@ -18,15 +42,79 @@ const inputClass = [
   'transition-colors duration-150',
 ].join(' ')
 
+// ── TagInput 컴포넌트 ─────────────────────────────────────────────────────────
+
+interface TagInputProps {
+  label: string
+  placeholder: string
+  tags: string[]
+  inputValue: string
+  onInputChange: (v: string) => void
+  onAdd: () => void
+  onRemove: (i: number) => void
+  mono?: boolean
+  tagStyle?: string
+}
+
+function TagInput({ label, placeholder, tags, inputValue, onInputChange, onAdd, onRemove, mono, tagStyle }: TagInputProps) {
+  return (
+    <div>
+      <label className="text-xs font-medium text-secondary uppercase tracking-wider">{label}</label>
+      <div className="flex gap-2 mt-1.5">
+        <input
+          className={`flex-1 ${inputClass}${mono ? ' font-mono' : ''}`}
+          value={inputValue}
+          onChange={e => onInputChange(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && onAdd()}
+          placeholder={placeholder}
+        />
+        <button
+          onClick={onAdd}
+          className="px-3 py-1.5 bg-surface2 text-secondary text-sm rounded-lg border border-white/[0.07] hover:border-white/20 hover:text-primary transition-all"
+        >
+          추가
+        </button>
+      </div>
+      {tags.length > 0 && (
+        <div className="flex flex-wrap gap-1 mt-2">
+          {tags.map((tag, i) => (
+            <span
+              key={i}
+              className={`flex items-center gap-1 px-2 py-0.5 text-xs rounded ${tagStyle ?? 'bg-surface2 text-secondary'}${mono ? ' font-mono' : ''}`}
+            >
+              {tag}
+              <button onClick={() => onRemove(i)} className="text-muted hover:text-secondary leading-none">×</button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Skills 페이지 ─────────────────────────────────────────────────────────────
+
 export function Skills() {
   const { repoId } = useParams()
   const [skills, setSkills] = useState<Skill[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
-  const [form, setForm] = useState<SkillCreate>(EMPTY_FORM)
-  const [focusArea, setFocusArea] = useState('')
-  const [ignorePattern, setIgnorePattern] = useState('')
+
+  // 폼 기본 필드
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
+  const [isEnabled, setIsEnabled] = useState(true)
+
+  // 태그 배열 상태
+  const [focusAreas, setFocusAreas] = useState<string[]>([])
+  const [ignorePatterns, setIgnorePatterns] = useState<string[]>([])
+  const [filePatterns, setFilePatterns] = useState<string[]>([])
+
+  // 태그 입력 임시 상태
+  const [focusInput, setFocusInput] = useState('')
+  const [ignoreInput, setIgnoreInput] = useState('')
+  const [filePatternInput, setFilePatternInput] = useState('')
 
   useEffect(() => {
     if (!repoId) return
@@ -36,34 +124,53 @@ export function Skills() {
     })
   }, [repoId])
 
-  const openCreate = () => {
-    setForm(EMPTY_FORM)
-    setFocusArea('')
-    setIgnorePattern('')
+  const resetForm = () => {
+    setName('')
+    setDescription('')
+    setIsEnabled(true)
+    setFocusAreas([])
+    setIgnorePatterns([])
+    setFilePatterns([])
+    setFocusInput('')
+    setIgnoreInput('')
+    setFilePatternInput('')
     setEditingId(null)
+  }
+
+  const openCreate = () => {
+    resetForm()
     setShowModal(true)
   }
 
   const openEdit = (skill: Skill) => {
-    setForm({
-      name: skill.name,
-      description: skill.description ?? '',
-      criteria: skill.criteria,
-      is_enabled: skill.is_enabled,
-    })
-    setFocusArea('')
-    setIgnorePattern('')
+    const { focusAreas: fa, ignorePatterns: ip } = parseCriteriaText(skill.criteria)
+    setName(skill.name)
+    setDescription(skill.description ?? '')
+    setIsEnabled(skill.is_enabled)
+    setFocusAreas(fa)
+    setIgnorePatterns(ip)
+    setFilePatterns(skill.file_patterns ?? [])
+    setFocusInput('')
+    setIgnoreInput('')
+    setFilePatternInput('')
     setEditingId(skill.id)
     setShowModal(true)
   }
 
   const handleSubmit = async () => {
-    if (!repoId || !form.name.trim()) return
+    if (!repoId || !name.trim()) return
+    const payload = {
+      name: name.trim(),
+      description: description.trim() || undefined,
+      criteria: serializeCriteria(focusAreas, ignorePatterns),
+      file_patterns: filePatterns,
+      is_enabled: isEnabled,
+    }
     if (editingId) {
-      const updated = await updateSkill(editingId, form)
+      const updated = await updateSkill(editingId, payload)
       setSkills(prev => prev.map(s => (s.id === updated.id ? updated : s)))
     } else {
-      const created = await createSkill(Number(repoId), form)
+      const created = await createSkill(Number(repoId), payload)
       setSkills(prev => [...prev, created])
     }
     setShowModal(false)
@@ -78,30 +185,6 @@ export function Skills() {
   const handleToggle = async (skill: Skill) => {
     const updated = await updateSkill(skill.id, { is_enabled: !skill.is_enabled })
     setSkills(prev => prev.map(s => (s.id === updated.id ? updated : s)))
-  }
-
-  const addFocusArea = () => {
-    if (!focusArea.trim()) return
-    const areas = ((form.criteria?.focus_areas as string[]) ?? [])
-    setForm(f => ({ ...f, criteria: { ...f.criteria, focus_areas: [...areas, focusArea.trim()] } }))
-    setFocusArea('')
-  }
-
-  const removeFocusArea = (i: number) => {
-    const areas = ((form.criteria?.focus_areas as string[]) ?? []).filter((_, idx) => idx !== i)
-    setForm(f => ({ ...f, criteria: { ...f.criteria, focus_areas: areas } }))
-  }
-
-  const addIgnorePattern = () => {
-    if (!ignorePattern.trim()) return
-    const patterns = ((form.criteria?.ignore_patterns as string[]) ?? [])
-    setForm(f => ({ ...f, criteria: { ...f.criteria, ignore_patterns: [...patterns, ignorePattern.trim()] } }))
-    setIgnorePattern('')
-  }
-
-  const removeIgnorePattern = (i: number) => {
-    const patterns = ((form.criteria?.ignore_patterns as string[]) ?? []).filter((_, idx) => idx !== i)
-    setForm(f => ({ ...f, criteria: { ...f.criteria, ignore_patterns: patterns } }))
   }
 
   if (loading) return <div className="text-secondary mt-10 text-center">불러오는 중...</div>
@@ -135,8 +218,8 @@ export function Skills() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {skills.map(skill => {
-            const focusAreas = (skill.criteria?.focus_areas as string[]) ?? []
-            const ignorePatterns = (skill.criteria?.ignore_patterns as string[]) ?? []
+            const { focusAreas: fa, ignorePatterns: ip } = parseCriteriaText(skill.criteria)
+            const fp = skill.file_patterns ?? []
             return (
               <div key={skill.id} className="bg-surface rounded-xl border border-white/[0.07] p-5 space-y-3 hover:border-white/[0.15] transition-all duration-150">
                 <div className="flex items-start justify-between">
@@ -148,35 +231,39 @@ export function Skills() {
                     <span className="text-xs text-muted">{skill.is_enabled ? '활성' : '비활성'}</span>
                     <div
                       onClick={() => handleToggle(skill)}
-                      className={`w-10 h-5 rounded-full transition-colors cursor-pointer ${
-                        skill.is_enabled ? 'bg-accent' : 'bg-surface2'
-                      }`}
+                      className={`w-10 h-5 rounded-full transition-colors cursor-pointer ${skill.is_enabled ? 'bg-accent' : 'bg-surface2'}`}
                     >
-                      <div
-                        className={`w-4 h-4 bg-white rounded-full shadow transition-transform mt-0.5 ${
-                          skill.is_enabled ? 'translate-x-5' : 'translate-x-0.5'
-                        }`}
-                      />
+                      <div className={`w-4 h-4 bg-white rounded-full shadow transition-transform mt-0.5 ${skill.is_enabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
                     </div>
                   </label>
                 </div>
 
-                {focusAreas.length > 0 && (
+                {fa.length > 0 && (
                   <div>
                     <p className="text-xs text-muted mb-1.5">Focus Areas</p>
                     <div className="flex flex-wrap gap-1">
-                      {focusAreas.map((a, i) => (
+                      {fa.map((a, i) => (
                         <span key={i} className="px-2 py-0.5 bg-blue-950/60 text-accent text-xs rounded ring-1 ring-blue-900/80">{a}</span>
                       ))}
                     </div>
                   </div>
                 )}
-                {ignorePatterns.length > 0 && (
+                {ip.length > 0 && (
                   <div>
                     <p className="text-xs text-muted mb-1.5">Ignore Patterns</p>
                     <div className="flex flex-wrap gap-1">
-                      {ignorePatterns.map((p, i) => (
+                      {ip.map((p, i) => (
                         <span key={i} className="px-2 py-0.5 bg-surface2 text-secondary text-xs rounded font-mono">{p}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {fp.length > 0 && (
+                  <div>
+                    <p className="text-xs text-muted mb-1.5">적용 파일 패턴</p>
+                    <div className="flex flex-wrap gap-1">
+                      {fp.map((p, i) => (
+                        <span key={i} className="px-2 py-0.5 bg-surface2 text-muted text-xs rounded font-mono">{p}</span>
                       ))}
                     </div>
                   </div>
@@ -206,93 +293,77 @@ export function Skills() {
       {showModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur-sm">
           <div
-            className="rounded-2xl border border-white/[0.08] w-full max-w-lg mx-4 p-6 space-y-4"
+            className="rounded-2xl border border-white/[0.08] w-full max-w-lg mx-4 p-6 space-y-4 overflow-y-auto max-h-[90vh]"
             style={{ background: 'rgba(24, 24, 27, 0.95)' }}
           >
             <h2 className="text-lg font-bold text-primary">{editingId ? '스킬 편집' : '새 스킬 추가'}</h2>
 
             <div className="space-y-4">
+              {/* 스킬 이름 */}
               <div>
                 <label className="text-xs font-medium text-secondary uppercase tracking-wider">스킬 이름 *</label>
                 <input
                   className={`mt-1.5 ${inputClass}`}
-                  value={form.name}
-                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                  placeholder="예: Security Review"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  placeholder="예: 보안 점검"
                 />
               </div>
+
+              {/* 설명 */}
               <div>
                 <label className="text-xs font-medium text-secondary uppercase tracking-wider">설명</label>
                 <textarea
                   className={`mt-1.5 ${inputClass} resize-none`}
                   rows={2}
-                  value={form.description ?? ''}
-                  onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                  placeholder="스킬에 대한 설명"
+                  value={description}
+                  onChange={e => setDescription(e.target.value)}
+                  placeholder="예: SQL Injection, XSS, 인증 우회 취약점을 검토합니다"
                 />
               </div>
 
               {/* Focus Areas */}
-              <div>
-                <label className="text-xs font-medium text-secondary uppercase tracking-wider">Focus Areas</label>
-                <div className="flex gap-2 mt-1.5">
-                  <input
-                    className={`flex-1 ${inputClass}`}
-                    value={focusArea}
-                    onChange={e => setFocusArea(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && addFocusArea()}
-                    placeholder="예: security vulnerabilities"
-                  />
-                  <button
-                    onClick={addFocusArea}
-                    className="px-3 py-1.5 bg-accent/10 text-accent text-sm rounded-lg border border-accent/30 hover:bg-accent/20 transition-colors"
-                  >
-                    추가
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {((form.criteria?.focus_areas as string[]) ?? []).map((a, i) => (
-                    <span key={i} className="flex items-center gap-1 px-2 py-0.5 bg-blue-950/60 text-accent text-xs rounded ring-1 ring-blue-900/80">
-                      {a}
-                      <button onClick={() => removeFocusArea(i)} className="text-accent/60 hover:text-accent">×</button>
-                    </span>
-                  ))}
-                </div>
-              </div>
+              <TagInput
+                label="Focus Areas"
+                placeholder="예: 파라미터화된 쿼리 사용 여부"
+                tags={focusAreas}
+                inputValue={focusInput}
+                onInputChange={setFocusInput}
+                onAdd={() => { if (focusInput.trim()) { setFocusAreas(p => [...p, focusInput.trim()]); setFocusInput('') } }}
+                onRemove={i => setFocusAreas(p => p.filter((_, idx) => idx !== i))}
+                tagStyle="bg-blue-950/60 text-accent ring-1 ring-blue-900/80"
+              />
 
               {/* Ignore Patterns */}
-              <div>
-                <label className="text-xs font-medium text-secondary uppercase tracking-wider">Ignore Patterns</label>
-                <div className="flex gap-2 mt-1.5">
-                  <input
-                    className={`flex-1 ${inputClass} font-mono`}
-                    value={ignorePattern}
-                    onChange={e => setIgnorePattern(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && addIgnorePattern()}
-                    placeholder="예: *.test.ts"
-                  />
-                  <button
-                    onClick={addIgnorePattern}
-                    className="px-3 py-1.5 bg-surface2 text-secondary text-sm rounded-lg border border-white/[0.07] hover:border-white/20 hover:text-primary transition-all"
-                  >
-                    추가
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {((form.criteria?.ignore_patterns as string[]) ?? []).map((p, i) => (
-                    <span key={i} className="flex items-center gap-1 px-2 py-0.5 bg-surface2 text-secondary text-xs rounded font-mono">
-                      {p}
-                      <button onClick={() => removeIgnorePattern(i)} className="text-muted hover:text-secondary">×</button>
-                    </span>
-                  ))}
-                </div>
-              </div>
+              <TagInput
+                label="Ignore Patterns"
+                placeholder="예: *.test.ts"
+                tags={ignorePatterns}
+                inputValue={ignoreInput}
+                onInputChange={setIgnoreInput}
+                onAdd={() => { if (ignoreInput.trim()) { setIgnorePatterns(p => [...p, ignoreInput.trim()]); setIgnoreInput('') } }}
+                onRemove={i => setIgnorePatterns(p => p.filter((_, idx) => idx !== i))}
+                mono
+              />
 
+              {/* 적용 파일 패턴 */}
+              <TagInput
+                label="적용 파일 패턴"
+                placeholder="예: **/migrations/** (비워두면 전체 적용)"
+                tags={filePatterns}
+                inputValue={filePatternInput}
+                onInputChange={setFilePatternInput}
+                onAdd={() => { if (filePatternInput.trim()) { setFilePatterns(p => [...p, filePatternInput.trim()]); setFilePatternInput('') } }}
+                onRemove={i => setFilePatterns(p => p.filter((_, idx) => idx !== i))}
+                mono
+              />
+
+              {/* 활성화 */}
               <label className="flex items-center gap-2.5 cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={form.is_enabled}
-                  onChange={e => setForm(f => ({ ...f, is_enabled: e.target.checked }))}
+                  checked={isEnabled}
+                  onChange={e => setIsEnabled(e.target.checked)}
                   className="accent-accent"
                 />
                 <span className="text-sm text-secondary">활성화</span>

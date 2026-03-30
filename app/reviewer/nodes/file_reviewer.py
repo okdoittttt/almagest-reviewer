@@ -23,12 +23,6 @@ _ROUTE_PATH_PATTERNS = ("routers/", "routes/", "views/", "endpoints/", "api/")
 # 앱 진입점 후보 (순서대로 시도)
 _ENTRY_CANDIDATES = ("main.py", "app.py", "application.py", "server.py", "asgi.py")
 
-_VERDICT_TO_STATUS = {
-    "fail": "BLOCKING",
-    "warn": "MINOR_ISSUES",
-    "pass": "LGTM",
-}
-
 
 async def _fetch_context_files(
     changed_files: list[FileChange],
@@ -127,20 +121,18 @@ def _aggregate_skill_results(filename: str, skill_results: list) -> dict:
             issue["skill"] = result.get("skill", "unknown")
             all_issues.append(issue)
 
-    # 가장 심각한 verdict를 파일 status로
-    if "fail" in verdicts:
+    # severity 기준으로 파일 status 결정 (fallback 경로와 동일한 4단계 체계)
+    high_issues = [i for i in all_issues if i.get("severity") == "high"]
+    medium_issues = [i for i in all_issues if i.get("severity") == "medium"]
+
+    if high_issues or "fail" in verdicts:
         status = "BLOCKING"
+    elif medium_issues:
+        status = "NEEDS_CHANGES"
     elif "warn" in verdicts:
         status = "MINOR_ISSUES"
     else:
         status = "LGTM"
-
-    high_issues = [i for i in all_issues if i.get("severity") == "high"]
-    if high_issues:
-        status = "BLOCKING"
-    elif any(i.get("severity") == "medium" for i in all_issues):
-        if status == "LGTM":
-            status = "MINOR_ISSUES"
 
     return {
         "filename": filename,

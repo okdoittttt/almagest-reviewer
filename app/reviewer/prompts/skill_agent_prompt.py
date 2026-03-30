@@ -49,6 +49,7 @@ def create_skill_agent_prompt(
   "issues": [
     {{
       "severity": "high | medium | low",
+      "type": "bug | security | performance | style | logic",
       "message": "구체적인 문제 설명",
       "suggestion": "해결 방법 제안"
     }}
