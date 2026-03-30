@@ -75,6 +75,9 @@ async def _run_skill_agent(
     file: FileChange,
     skill: dict,
     diff_max_chars: int,
+    context_files: dict[str, str] | None = None,
+    pr_files: list | None = None,
+    previous_review: dict | None = None,
 ) -> dict:
     """단일 스킬 서브 에이전트를 실행합니다.
 
@@ -82,22 +85,31 @@ async def _run_skill_agent(
         file: 리뷰 대상 파일.
         skill: 적용할 스킬 정보.
         diff_max_chars: diff 최대 표시 길이.
+        context_files: 리뷰에 필요한 관련 파일 내용.
+        pr_files: 이 PR에서 변경된 전체 파일 목록.
+        previous_review: 이전 리뷰 컨텍스트 (미해결 코멘트 포함).
 
     Returns:
-        ``skill``, ``verdict``, ``issues`` 키를 포함하는 딕셔너리.
+        ``skill``, ``verdict``, ``issues``, ``resolved_comment_ids`` 키를 포함하는 딕셔너리.
     """
     try:
         llm = get_llm(temperature=0.0)
-        prompt = create_skill_agent_prompt(file, skill, diff_max_chars)
+        prompt = create_skill_agent_prompt(
+            file, skill, diff_max_chars,
+            context_files=context_files,
+            pr_files=pr_files,
+            previous_review=previous_review,
+        )
         response = await llm.ainvoke(prompt)
         result = parse_llm_json_response(response.content)
         result.setdefault("skill", skill.get("name", "unknown"))
         result.setdefault("verdict", "pass")
         result.setdefault("issues", [])
+        result.setdefault("resolved_comment_ids", [])
         return result
     except Exception as e:
         logger.warning(f"  ⚠️ 스킬 에이전트 실패 ({skill.get('name')}): {e}")
-        return {"skill": skill.get("name", "unknown"), "verdict": "pass", "issues": []}
+        return {"skill": skill.get("name", "unknown"), "verdict": "pass", "issues": [], "resolved_comment_ids": []}
 
 
 def _aggregate_skill_results(filename: str, skill_results: list) -> dict:
@@ -112,6 +124,7 @@ def _aggregate_skill_results(filename: str, skill_results: list) -> dict:
     """
     all_issues = []
     verdicts = []
+    all_resolved_ids = []
 
     for result in skill_results:
         if isinstance(result, Exception):
@@ -120,6 +133,7 @@ def _aggregate_skill_results(filename: str, skill_results: list) -> dict:
         for issue in result.get("issues", []):
             issue["skill"] = result.get("skill", "unknown")
             all_issues.append(issue)
+        all_resolved_ids.extend(result.get("resolved_comment_ids", []))
 
     # severity 기준으로 파일 status 결정 (fallback 경로와 동일한 4단계 체계)
     high_issues = [i for i in all_issues if i.get("severity") == "high"]
@@ -139,7 +153,7 @@ def _aggregate_skill_results(filename: str, skill_results: list) -> dict:
         "status": status,
         "issues": all_issues,
         "suggestions": [],
-        "resolved_comment_ids": [],
+        "resolved_comment_ids": list(set(all_resolved_ids)),
         "summary": f"{len(skill_results)}개 스킬 검토 완료 — 이슈 {len(all_issues)}개",
         "skill_results": skill_results,
     }
@@ -192,7 +206,12 @@ async def review_single_file(
             )
             # 스킬별 서브 에이전트 병렬 실행
             skill_tasks = [
-                _run_skill_agent(file, skill, diff_max_chars)
+                _run_skill_agent(
+                    file, skill, diff_max_chars,
+                    context_files=context_files,
+                    pr_files=pr_files,
+                    previous_review=previous_review,
+                )
                 for skill in applicable_skills
             ]
             skill_results = await asyncio.gather(*skill_tasks, return_exceptions=True)
