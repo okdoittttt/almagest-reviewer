@@ -9,7 +9,7 @@ from app.database.models.pull_request import PullRequest
 from app.database.models.repository import Repository
 from app.database.models.skill import Skill
 from app.github import github_client
-from app.schemas.repository import RepositoryListItem
+from app.schemas.repository import RepositoryListItem, RepositorySystemPromptUpdate
 from app.services.review_service import update_pr_state
 
 router = APIRouter(prefix="/repositories", tags=["repositories"])
@@ -100,6 +100,53 @@ async def toggle_repository(repo_id: int, session: AsyncSession = Depends(get_db
     item.pull_request_count = pr_count or 0
     item.skill_count = skill_count or 0
     return item
+
+
+@router.get("/{repo_id}/system-prompt")
+async def get_system_prompt(repo_id: int, session: AsyncSession = Depends(get_db)) -> dict:
+    """저장소의 system_prompt를 반환한다.
+
+    Args:
+        repo_id: 저장소 내부 PK.
+        session: 비동기 DB 세션.
+
+    Returns:
+        ``{"system_prompt": str | None}``
+
+    Raises:
+        HTTPException: repo_id에 해당하는 저장소가 없으면 404.
+    """
+    repo = await session.get(Repository, repo_id)
+    if repo is None:
+        raise HTTPException(status_code=404, detail="Repository not found")
+    return {"system_prompt": repo.system_prompt}
+
+
+@router.patch("/{repo_id}/system-prompt")
+async def update_system_prompt(
+    repo_id: int,
+    body: RepositorySystemPromptUpdate,
+    session: AsyncSession = Depends(get_db),
+) -> dict:
+    """저장소의 system_prompt를 업데이트한다.
+
+    Args:
+        repo_id: 저장소 내부 PK.
+        body: ``system_prompt`` 필드를 포함하는 요청 바디. None이면 초기화.
+        session: 비동기 DB 세션.
+
+    Returns:
+        ``{"system_prompt": str | None}``
+
+    Raises:
+        HTTPException: repo_id에 해당하는 저장소가 없으면 404.
+    """
+    repo = await session.get(Repository, repo_id)
+    if repo is None:
+        raise HTTPException(status_code=404, detail="Repository not found")
+    repo.system_prompt = body.system_prompt
+    await session.flush()
+    return {"system_prompt": repo.system_prompt}
 
 
 @router.post("/{repo_id}/sync-prs")

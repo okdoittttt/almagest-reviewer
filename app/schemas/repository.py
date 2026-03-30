@@ -11,6 +11,7 @@ class RepositoryListItem(BaseModel):
     name: str
     installation_id: str
     is_active: bool
+    system_prompt: str | None = None
     pull_request_count: int = 0
     skill_count: int = 0
     created_at: datetime
@@ -21,3 +22,7 @@ class RepositoryListItem(BaseModel):
 
 class RepositoryDetail(RepositoryListItem):
     pass
+
+
+class RepositorySystemPromptUpdate(BaseModel):
+    system_prompt: str | None

@@ -36,7 +36,7 @@ async def load_repo_skills(state: ReviewState) -> dict:
 
             if repo is None:
                 logger.info(f"📦 저장소 미등록 ({repo_owner}/{repo_name}) — Skills 없음")
-                return {"repo_skills": []}
+                return {"repo_skills": [], "repo_system_prompt": None}
 
             skills_result = await session.execute(
                 select(Skill).where(
@@ -56,8 +56,11 @@ async def load_repo_skills(state: ReviewState) -> dict:
             else:
                 logger.info(f"🎯 등록된 Skills 없음 ({repo_owner}/{repo_name})")
 
-            return {"repo_skills": repo_skills}
+            if repo.system_prompt:
+                logger.info(f"📝 system_prompt 로드 완료 ({repo_owner}/{repo_name})")
+
+            return {"repo_skills": repo_skills, "repo_system_prompt": repo.system_prompt}
 
     except Exception as e:
         logger.warning(f"⚠️ Skills 로드 실패 (리뷰는 계속 진행): {e}")
-        return {"repo_skills": []}
+        return {"repo_skills": [], "repo_system_prompt": None}

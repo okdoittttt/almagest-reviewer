@@ -40,6 +40,7 @@ class ReviewState(TypedDict):
 
     # ===== 0단계: 저장소 Skills + 이전 리뷰 =====
     repo_skills: list[dict]
+    repo_system_prompt: Optional[str]
     previous_review: Optional[dict]
 
     # ===== 1단계: PR 의도 분석 =====
@@ -93,6 +94,7 @@ def create_initial_state(
 
         # Skills (load_skills 노드가 채움)
         repo_skills=[],
+        repo_system_prompt=None,
 
         # 이전 리뷰 컨텍스트 (load_previous_review 노드가 채움)
         previous_review=None,

@@ -14,6 +14,7 @@ def create_file_review_prompt(
     repo_skills: list[dict] | None = None,
     previous_review: dict | None = None,
     diff_max_chars: int = 10000,
+    system_prompt: str | None = None,
 ) -> str:
     """개별 파일을 리뷰하는 프롬프트를 생성합니다.
 
@@ -26,21 +27,20 @@ def create_file_review_prompt(
         repo_skills: 저장소별 커스텀 리뷰 기준 목록.
         previous_review: 이전 리뷰 컨텍스트. ``unresolved_by_file`` 등을 포함합니다.
         diff_max_chars: diff 최대 표시 길이 (문자 수).
+        system_prompt: 저장소별 리뷰 지침. 없으면 스킬만으로 판단합니다.
 
     Returns:
         LLM에 전달할 프롬프트 문자열.
     """
     # Diff가 없는 경우 (바이너리 파일, 이름 변경 등)
     if not file.patch:
-        return f"""다음 파일의 변경사항을 검토해주세요.
+        return f"""코드 리뷰어입니다. 다음 파일의 변경사항을 검토해주세요.
 
 **파일:** `{file.filename}`
 **상태:** {file.status}
 **변경:** +{file.additions}/-{file.deletions}
 
 Diff가 제공되지 않았습니다. (바이너리 파일이거나 이름만 변경됨)
-
-간단히 다음 형식으로 응답해주세요:
 
 ```json
 {{
@@ -58,6 +58,26 @@ JSON만 응답해주세요."""
     patch_preview = file.patch[:diff_max_chars] if len(file.patch) > diff_max_chars else file.patch
     is_truncated = len(file.patch) > diff_max_chars
 
+    system_prompt_section = ""
+    if system_prompt and system_prompt.strip():
+        system_prompt_section = f"\n## 리뷰 지침\n{system_prompt.strip()}\n"
+
+    skills_section = ""
+    if repo_skills:
+        safe_skills = sanitize_skills(repo_skills)
+        if safe_skills:
+            skill_lines = []
+            for s in safe_skills:
+                line = f"- **{s['name']}**: {s['description']}"
+                if s.get("criteria"):
+                    line += f"\n  기준: {s['criteria']}"
+                skill_lines.append(line)
+            skills_section = (
+                "\n## 반드시 적용할 리뷰 기준\n"
+                + "\n".join(skill_lines)
+                + "\n"
+            )
+
     pr_files_section = ""
     if pr_files:
         file_lines = [
@@ -67,20 +87,6 @@ JSON만 응답해주세요."""
         ]
         if file_lines:
             pr_files_section = "\n## 이 PR에서 함께 변경된 파일들\n" + "\n".join(file_lines) + "\n"
-
-    skills_section = ""
-    if repo_skills:
-        safe_skills = sanitize_skills(repo_skills)
-        if safe_skills:
-            skill_lines = [
-                f"- **{s['name']}**: {s['description']}"
-                for s in safe_skills
-            ]
-            skills_section = (
-                "\n## 저장소 리뷰 가이드라인 (참고 기준)\n"
-                + "\n".join(skill_lines)
-                + "\n"
-            )
 
     prev_issues_section = ""
     if previous_review:
@@ -103,13 +109,13 @@ JSON만 응답해주세요."""
             parts.append(f"### `{path}`{truncated}\n```\n{preview}\n```")
         context_section = "\n## 관련 파일 (변경되지 않은 컨텍스트)\n" + "\n\n".join(parts) + "\n"
 
-    return f"""당신은 코드 품질과 보안을 중시하는 시니어 개발자입니다. 다음 파일의 변경사항을 상세히 리뷰해주세요.
-
+    return f"""코드 리뷰어입니다. 아래 기준에 따라 파일을 리뷰하고 JSON으로만 응답하세요.
+{system_prompt_section}{skills_section}
 ## 컨텍스트
 **PR 의도:** {pr_intent.get('summary', 'N/A')} ({pr_intent.get('type', 'unknown')})
 **위험도:** {risk_assessment.get('level', 'UNKNOWN')} (점수: {risk_assessment.get('score', 0)}/10)
 **주요 검토 영역:** {', '.join(risk_assessment.get('review_focus_areas', [])[:3])}
-{skills_section}{pr_files_section}{prev_issues_section}{context_section}
+{pr_files_section}{prev_issues_section}{context_section}
 ## 파일 정보
 **경로:** `{file.filename}`
 **상태:** {file.status}
@@ -124,7 +130,7 @@ JSON만 응답해주세요."""
 
 ---
 
-다음 관점에서 코드를 검토하고, JSON 형식으로 응답해주세요:
+다음 JSON 형식으로 응답해주세요:
 
 ```json
 {{
@@ -139,35 +145,14 @@ JSON만 응답해주세요."""
     }}
   ],
   "suggestions": [
-    "개선 제안 1",
-    "개선 제안 2"
+    "개선 제안 1"
   ],
   "positive_notes": [
-    "잘된 부분 1",
-    "잘된 부분 2"
+    "잘된 부분 1"
   ],
   "resolved_comment_ids": [이전 리뷰에서 이번 변경으로 해결된 코멘트 ID 목록. 없으면 빈 배열],
   "summary": "이 파일 변경에 대한 전체 평가 (2-3문장)"
 }}
 ```
-
-**검토 체크리스트:**
-1. ✅ **로직 정확성**: 버그 가능성, 엣지 케이스 처리
-2. 🔒 **보안**: SQL Injection, XSS, 인증/인가 우회, 민감정보 노출
-3. ⚡ **성능**: N+1 쿼리, 불필요한 반복, 메모리 누수
-4. 🎨 **코드 품질**: 가독성, 중복 코드, 네이밍, 복잡도
-5. 🧪 **테스트 필요성**: 이 변경에 테스트가 필요한가?
-6. 📚 **문서화**: 복잡한 로직에 주석이 필요한가?
-
-**severity 판단 기준:**
-- **high**: 보안 취약점, 치명적 버그, 데이터 손실 가능성
-- **medium**: 일반적인 버그, 성능 문제, 잘못된 로직
-- **low**: 코드 스타일, 네이밍, 가독성 개선
-
-**status 판단 기준:**
-- **LGTM**: 이슈 없음, 승인 가능
-- **MINOR_ISSUES**: 사소한 개선사항만 있음, 승인 가능
-- **NEEDS_CHANGES**: 수정이 필요하지만 치명적이지 않음
-- **BLOCKING**: 반드시 수정해야 함 (보안, 치명적 버그)
 
 JSON만 응답해주세요. 실제 코드를 작성하지 말고 검토만 해주세요."""

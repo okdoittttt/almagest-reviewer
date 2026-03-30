@@ -1,5 +1,5 @@
 """Repository ORM 모델."""
-from sqlalchemy import BigInteger, Boolean, Index, String, UniqueConstraint
+from sqlalchemy import BigInteger, Boolean, Index, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base, TimestampMixin
@@ -30,6 +30,7 @@ class Repository(Base, TimestampMixin):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     installation_id: Mapped[str] = mapped_column(String(255), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    system_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     skills: Mapped[list["Skill"]] = relationship(  # noqa: F821
         "Skill", back_populates="repository", cascade="all, delete-orphan"

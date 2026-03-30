@@ -80,6 +80,7 @@ async def review_single_file(
     repo_skills: list[dict] | None = None,
     previous_review: dict | None = None,
     diff_max_chars: int = 10000,
+    system_prompt: str | None = None,
 ) -> dict:
     """단일 파일을 리뷰하는 헬퍼 함수.
 
@@ -108,6 +109,7 @@ async def review_single_file(
         prompt = create_file_review_prompt(
             file, pr_intent, risk_assessment, context_files,
             pr_files, repo_skills, previous_review, diff_max_chars,
+            system_prompt=system_prompt,
         )
 
         # LLM 호출
@@ -189,6 +191,7 @@ async def review_all_files(state: ReviewState) -> dict:
     risk_assessment = state.get("risk_assessment", {})
     repo_skills = state.get("repo_skills", [])
     previous_review = state.get("previous_review")
+    system_prompt = state.get("repo_system_prompt")
 
     all_files = pr_data.files
 
@@ -237,6 +240,7 @@ async def review_all_files(state: ReviewState) -> dict:
         review_single_file(
             file, idx, total_files, pr_intent, risk_assessment,
             context_files, files, repo_skills, previous_review, diff_max_chars,
+            system_prompt=system_prompt,
         )
         for idx, file in enumerate(files)
     ]
