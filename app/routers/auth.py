@@ -1,8 +1,9 @@
 """GitHub OAuth 로그인 라우터."""
+import secrets
 from urllib.parse import urlencode
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
 from fastapi.responses import RedirectResponse
 
 from app.auth.user_jwt import create_user_token
@@ -18,27 +19,50 @@ _GITHUB_USER_ORGS_URL = "https://api.github.com/user/orgs"
 
 _COOKIE_NAME = "almagest_token"
 _COOKIE_MAX_AGE = settings.jwt_expire_hours * 3600
+_STATE_COOKIE_NAME = "oauth_state"
+_STATE_COOKIE_MAX_AGE = 600  # 10분, OAuth 플로우 완료에 충분한 시간
 
 
 @router.get("/login")
-async def login() -> RedirectResponse:
+async def login(response: Response) -> RedirectResponse:
     """GitHub OAuth 인증 화면으로 리다이렉트합니다."""
     if not settings.github_client_id:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="GITHUB_CLIENT_ID가 설정되지 않았습니다.",
         )
+    state = secrets.token_urlsafe(32)
     params = urlencode({
         "client_id": settings.github_client_id,
         "scope": "read:user read:org",
         "redirect_uri": f"{settings.app_base_url}/api/auth/callback",
+        "state": state,
     })
-    return RedirectResponse(f"{_GITHUB_AUTHORIZE_URL}?{params}")
+    redirect = RedirectResponse(f"{_GITHUB_AUTHORIZE_URL}?{params}")
+    redirect.set_cookie(
+        key=_STATE_COOKIE_NAME,
+        value=state,
+        httponly=True,
+        samesite="lax",
+        max_age=_STATE_COOKIE_MAX_AGE,
+        path="/",
+    )
+    return redirect
 
 
 @router.get("/callback")
-async def callback(code: str) -> RedirectResponse:
+async def callback(
+    code: str,
+    state: str,
+    oauth_state: str | None = Cookie(None),
+) -> RedirectResponse:
     """GitHub OAuth 콜백 — 코드를 httpOnly 쿠키로 교환 후 프론트로 리다이렉트합니다."""
+    if not oauth_state or not secrets.compare_digest(state, oauth_state):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="유효하지 않은 OAuth state입니다. 다시 로그인해주세요.",
+        )
+
     async with httpx.AsyncClient() as client:
         # 1. code → access_token 교환 (서버 간 통신, client_secret 클라이언트에 미노출)
         token_res = await client.post(
@@ -65,6 +89,11 @@ async def callback(code: str) -> RedirectResponse:
         )
         user_data = user_res.json()
         github_login = user_data.get("login", "")
+        if not github_login:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="GitHub 사용자 정보를 가져오지 못했습니다.",
+            )
 
         # 3. (org 체크가 필요한 경우만) org 멤버십 조회
         allowed_org = settings.allowed_github_org.strip()
@@ -99,7 +128,7 @@ async def callback(code: str) -> RedirectResponse:
             )
     # 둘 다 미설정이면 누구나 허용 (기존 동작 유지)
 
-    # 4. JWT를 httpOnly 쿠키에 저장 후 대시보드로 리다이렉트
+    # 5. JWT를 httpOnly 쿠키에 저장 후 대시보드로 리다이렉트
     #    URL에 토큰을 노출하지 않으므로 브라우저 히스토리/로그에 남지 않음
     jwt_token = create_user_token(github_login)
     response = RedirectResponse("/", status_code=302)
@@ -111,6 +140,7 @@ async def callback(code: str) -> RedirectResponse:
         max_age=_COOKIE_MAX_AGE,
         path="/",
     )
+    response.delete_cookie(key=_STATE_COOKIE_NAME, path="/")
     return response
 
 
