@@ -20,14 +20,20 @@ class ReviewComment(Base, TimestampMixin):
         filename: 코멘트 대상 파일 경로.
         comment_type: 코멘트 유형 (issue/suggestion/reply).
         body: 코멘트 내용.
+        severity: 이슈 심각도 (high/medium/low). issue 타입에만 적용.
         is_addressed: 팔로업에서 처리 완료 여부.
         addressed_at: 처리 완료 시각.
+        is_dismissed: false positive로 기각 여부.
+        dismissed_reason: 기각 사유.
+        dismissed_by: 기각한 사람 (GitHub login).
+        dismissed_at: 기각 시각.
     """
 
     __tablename__ = "review_comments"
     __table_args__ = (
         Index("ix_review_comments_review_id", "review_id"),
         Index("ix_review_comments_review_addressed", "review_id", "is_addressed"),
+        Index("ix_review_comments_review_dismissed", "review_id", "is_dismissed"),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
@@ -40,8 +46,13 @@ class ReviewComment(Base, TimestampMixin):
     filename: Mapped[str | None] = mapped_column(String(1000))
     comment_type: Mapped[str] = mapped_column(String(50), default="issue", nullable=False)
     body: Mapped[str | None] = mapped_column(Text)
+    severity: Mapped[str | None] = mapped_column(String(20))
     is_addressed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     addressed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    is_dismissed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    dismissed_reason: Mapped[str | None] = mapped_column(Text)
+    dismissed_by: Mapped[str | None] = mapped_column(String(255))
+    dismissed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     review: Mapped["Review"] = relationship(  # noqa: F821
         "Review", back_populates="comments"

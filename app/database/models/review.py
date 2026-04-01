@@ -47,6 +47,8 @@ class Review(Base, TimestampMixin):
     trigger_source: Mapped[str] = mapped_column(String(50), nullable=False, server_default="push")
     retry_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     errors: Mapped[list] = mapped_column(JSONB, default=list, nullable=False, server_default="[]")
+    effective_risk_score: Mapped[float | None] = mapped_column(Float)
+    effective_risk_level: Mapped[str | None] = mapped_column(String(20))
 
     pull_request: Mapped["PullRequest"] = relationship(  # noqa: F821
         "PullRequest", back_populates="reviews"

@@ -84,6 +84,23 @@ def create_summary_prompt(
         if len(unresolved_lines) > 10:
             unresolved_text += f"\n... 외 {len(unresolved_lines) - 10}개"
 
+        known_fps = previous_review.get("known_false_positives", [])
+        if known_fps:
+            fp_lines = []
+            for fp in known_fps[:10]:
+                reason_text = f" (사유: {fp['reason']})" if fp.get("reason") else ""
+                fp_lines.append(f"- **{fp['file']}**: {fp['body']}{reason_text}")
+            fp_text = "\n".join(fp_lines)
+            if len(known_fps) > 10:
+                fp_text += f"\n... 외 {len(known_fps) - 10}개"
+            false_positive_section = f"""
+### 재지적 금지 이슈 (이전에 False Positive로 확인됨)
+아래 이슈들은 사람이 검토 후 오탐으로 확인했습니다. 동일한 내용을 다시 지적하지 마세요.
+{fp_text}
+"""
+        else:
+            false_positive_section = ""
+
         prev_review_section = f"""
 ## 이전 리뷰 현황 (델타 분석 참고)
 - 이전 판정: **{prev_decision}** (위험도: {prev_risk})
@@ -91,7 +108,7 @@ def create_summary_prompt(
 
 ### 미해결 이슈 목록
 {unresolved_text}
-
+{false_positive_section}
 종합 평가 시 위 미해결 이슈들이 이번 PR에서 해결됐는지 판단하고,
 개선된 항목과 여전히 남은 항목을 코멘트에 명시해주세요.
 """

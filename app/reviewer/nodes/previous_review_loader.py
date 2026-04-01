@@ -80,15 +80,26 @@ async def load_previous_review(state: ReviewState) -> dict:
                 logger.info(f"🔍 PR #{pr_number} — 이전 리뷰 없음 (첫 리뷰)")
                 return {"previous_review": None}
 
-            # 미해결 코멘트 조회 (parent_id가 없는 원본 코멘트만)
+            # 미해결 코멘트 조회 (addressed도 dismissed도 아닌 원본 코멘트만)
             comments_result = await session.execute(
                 select(ReviewComment).where(
                     ReviewComment.review_id == review.id,
                     ReviewComment.is_addressed.is_(False),
+                    ReviewComment.is_dismissed.is_(False),
                     ReviewComment.parent_id.is_(None),
                 )
             )
             unresolved = comments_result.scalars().all()
+
+            # 기각된 코멘트 조회 (known false positives)
+            dismissed_result = await session.execute(
+                select(ReviewComment).where(
+                    ReviewComment.review_id == review.id,
+                    ReviewComment.is_dismissed.is_(True),
+                    ReviewComment.parent_id.is_(None),
+                )
+            )
+            dismissed = dismissed_result.scalars().all()
 
             # 파일별로 정리
             unresolved_by_file: dict[str, list[dict]] = {}
@@ -98,6 +109,15 @@ async def load_previous_review(state: ReviewState) -> dict:
                     {"id": c.id, "type": c.comment_type, "body": c.body}
                 )
 
+            known_false_positives = [
+                {
+                    "file": c.filename or "_unknown",
+                    "body": c.body,
+                    "reason": c.dismissed_reason,
+                }
+                for c in dismissed
+            ]
+
             previous_review = {
                 "review_id": review.id,
                 "decision": review.review_decision,
@@ -105,12 +125,14 @@ async def load_previous_review(state: ReviewState) -> dict:
                 "final_review": review.final_review,
                 "unresolved_by_file": unresolved_by_file,
                 "unresolved_count": len(unresolved),
+                "known_false_positives": known_false_positives,
             }
 
             logger.info(
                 f"📋 이전 리뷰 로드 완료: review_id={review.id}, "
                 f"decision={review.review_decision}, "
-                f"미해결 코멘트={len(unresolved)}개"
+                f"미해결 코멘트={len(unresolved)}개, "
+                f"기각된 코멘트={len(dismissed)}개"
             )
             return {"previous_review": previous_review}
 

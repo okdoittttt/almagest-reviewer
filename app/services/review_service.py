@@ -156,13 +156,19 @@ async def save_review_comments(
     for file_review in file_reviews:
         filename = file_review.get("filename")
         for issue in file_review.get("issues", []):
-            body = issue if isinstance(issue, str) else str(issue)
+            if isinstance(issue, dict):
+                body = str(issue)
+                severity = issue.get("severity")
+            else:
+                body = str(issue)
+                severity = None
             comments.append(
                 ReviewComment(
                     review_id=review_id,
                     filename=filename,
                     comment_type="issue",
                     body=body,
+                    severity=severity,
                 )
             )
         for suggestion in file_review.get("suggestions", []):
@@ -432,6 +438,125 @@ async def review_exists_for_head_sha(
         .limit(1)
     )
     return result.scalar_one_or_none() is not None
+
+
+async def recalculate_effective_risk(
+    session: AsyncSession,
+    review_id: int,
+) -> tuple[str, float]:
+    """dismiss/addressed 후 남은 활성 이슈 기반으로 effective risk를 재계산합니다.
+
+    활성 이슈 = comment_type="issue", is_dismissed=False, is_addressed=False, parent_id IS NULL
+
+    Args:
+        session: 비동기 DB 세션.
+        review_id: Review 내부 PK.
+
+    Returns:
+        (effective_risk_level, effective_risk_score) 튜플.
+    """
+    result = await session.execute(
+        select(ReviewComment).where(
+            ReviewComment.review_id == review_id,
+            ReviewComment.comment_type == "issue",
+            ReviewComment.is_dismissed.is_(False),
+            ReviewComment.is_addressed.is_(False),
+            ReviewComment.parent_id.is_(None),
+        )
+    )
+    active_issues = result.scalars().all()
+
+    high = sum(1 for c in active_issues if c.severity == "high")
+    medium = sum(1 for c in active_issues if c.severity == "medium")
+
+    if high >= 1:
+        level = "HIGH"
+        score = min(0.9, 0.6 + high * 0.1)
+    elif medium >= 2:
+        level = "MEDIUM"
+        score = 0.5
+    elif medium == 1:
+        level = "MEDIUM"
+        score = 0.4
+    else:
+        level = "LOW"
+        score = 0.2
+
+    review_result = await session.execute(select(Review).where(Review.id == review_id))
+    review = review_result.scalar_one()
+    review.effective_risk_score = score
+    review.effective_risk_level = level
+
+    return level, score
+
+
+async def dismiss_comment(
+    session: AsyncSession,
+    review_id: int,
+    comment_id: int,
+    reason: str | None,
+) -> "ReviewComment":
+    """ReviewComment를 false positive로 기각하고 effective risk를 재계산합니다.
+
+    Args:
+        session: 비동기 DB 세션.
+        review_id: Review 내부 PK.
+        comment_id: ReviewComment 내부 PK.
+        reason: 기각 사유.
+
+    Returns:
+        업데이트된 ReviewComment 인스턴스.
+
+    Raises:
+        ValueError: comment_id가 해당 review에 속하지 않는 경우.
+    """
+    comment = await session.get(ReviewComment, comment_id)
+    if comment is None or comment.review_id != review_id:
+        raise ValueError(f"Comment {comment_id} not found in review {review_id}")
+
+    comment.is_dismissed = True
+    comment.dismissed_reason = reason
+    comment.dismissed_at = datetime.now(timezone.utc)
+    await session.flush()
+
+    await recalculate_effective_risk(session, review_id)
+    await session.flush()
+    await session.refresh(comment)
+    return comment
+
+
+async def undismiss_comment(
+    session: AsyncSession,
+    review_id: int,
+    comment_id: int,
+) -> "ReviewComment":
+    """기각된 ReviewComment를 복구하고 effective risk를 재계산합니다.
+
+    Args:
+        session: 비동기 DB 세션.
+        review_id: Review 내부 PK.
+        comment_id: ReviewComment 내부 PK.
+
+    Returns:
+        업데이트된 ReviewComment 인스턴스.
+
+    Raises:
+        ValueError: comment_id가 해당 review에 속하지 않는 경우.
+    """
+    comment = await session.get(ReviewComment, comment_id)
+    if comment is None or comment.review_id != review_id:
+        raise ValueError(f"Comment {comment_id} not found in review {review_id}")
+
+    comment.is_dismissed = False
+    comment.dismissed_reason = None
+    comment.dismissed_by = None
+    comment.dismissed_at = None
+    await session.flush()
+
+    await recalculate_effective_risk(session, review_id)
+    await session.flush()
+    await session.refresh(comment)
+    return comment
 
 
 async def mark_comments_addressed(

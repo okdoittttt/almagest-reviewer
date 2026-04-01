@@ -10,7 +10,7 @@ from app.database import get_db
 from app.database.models.review import Review
 from app.database.models.review_comment import ReviewComment
 from app.schemas.review import ReviewCommentOut, ReviewDetail
-from app.services.review_service import create_comment_reply
+from app.services.review_service import create_comment_reply, dismiss_comment, undismiss_comment
 
 router = APIRouter(prefix="/reviews", tags=["reviews"])
 
@@ -68,6 +68,10 @@ class AddressedUpdate(BaseModel):
     is_addressed: bool
 
 
+class DismissCreate(BaseModel):
+    reason: str | None = None
+
+
 @router.post("/{review_id}/comments/{comment_id}/replies", response_model=ReviewCommentOut)
 async def post_comment_reply(
     review_id: int,
@@ -94,6 +98,64 @@ async def post_comment_reply(
     except ValueError:
         raise HTTPException(status_code=404, detail="Comment not found")
     return ReviewCommentOut.model_validate(reply)
+
+
+@router.post("/{review_id}/comments/{comment_id}/dismiss", response_model=ReviewCommentOut)
+async def dismiss_review_comment(
+    review_id: int,
+    comment_id: int,
+    body: DismissCreate,
+    session: AsyncSession = Depends(get_db),
+) -> ReviewCommentOut:
+    """리뷰 코멘트를 false positive로 기각한다.
+
+    기각 후 해당 리뷰의 effective_risk_score / effective_risk_level이 재계산된다.
+
+    Args:
+        review_id: Review 내부 PK.
+        comment_id: ReviewComment 내부 PK.
+        body: 기각 사유.
+        session: 비동기 DB 세션.
+
+    Returns:
+        업데이트된 ReviewCommentOut.
+
+    Raises:
+        HTTPException: comment_id가 없거나 해당 review에 속하지 않으면 404.
+    """
+    try:
+        comment = await dismiss_comment(session, review_id, comment_id, body.reason)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    return ReviewCommentOut.model_validate(comment)
+
+
+@router.delete("/{review_id}/comments/{comment_id}/dismiss", response_model=ReviewCommentOut)
+async def undismiss_review_comment(
+    review_id: int,
+    comment_id: int,
+    session: AsyncSession = Depends(get_db),
+) -> ReviewCommentOut:
+    """기각된 리뷰 코멘트를 복구한다.
+
+    복구 후 해당 리뷰의 effective_risk_score / effective_risk_level이 재계산된다.
+
+    Args:
+        review_id: Review 내부 PK.
+        comment_id: ReviewComment 내부 PK.
+        session: 비동기 DB 세션.
+
+    Returns:
+        업데이트된 ReviewCommentOut.
+
+    Raises:
+        HTTPException: comment_id가 없거나 해당 review에 속하지 않으면 404.
+    """
+    try:
+        comment = await undismiss_comment(session, review_id, comment_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    return ReviewCommentOut.model_validate(comment)
 
 
 @router.patch("/{review_id}/comments/{comment_id}", response_model=ReviewCommentOut)
