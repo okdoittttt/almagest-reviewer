@@ -75,6 +75,16 @@ export const createCommentReply = (reviewId: number, commentId: number, body: st
     .post<ReviewComment>(`/reviews/${reviewId}/comments/${commentId}/replies`, { body })
     .then(r => r.data)
 
+export const dismissComment = (reviewId: number, commentId: number, reason: string | null) =>
+  api
+    .post<ReviewComment>(`/reviews/${reviewId}/comments/${commentId}/dismiss`, { reason })
+    .then(r => r.data)
+
+export const undismissComment = (reviewId: number, commentId: number) =>
+  api
+    .delete<ReviewComment>(`/reviews/${reviewId}/comments/${commentId}/dismiss`)
+    .then(r => r.data)
+
 export const mergePullRequest = (prId: number, mergeMethod: string) =>
   api.post<import('./types').PullRequest>(`/pull-requests/${prId}/merge`, { merge_method: mergeMethod }).then(r => r.data)
 

@@ -37,6 +37,10 @@ export interface Review {
   head_sha: string
   risk_level: string | null
   risk_score: number | null
+  effective_risk_score: number | null
+  effective_risk_level: string | null
+  display_risk_score: number | null
+  display_risk_level: string | null
   review_decision: string | null
   trigger_source: string
   retry_count: number
@@ -56,8 +60,13 @@ export interface ReviewComment {
   filename: string | null
   comment_type: string
   body: string | null
+  severity: string | null
   is_addressed: boolean
   addressed_at: string | null
+  is_dismissed: boolean
+  dismissed_reason: string | null
+  dismissed_by: string | null
+  dismissed_at: string | null
   created_at: string
   updated_at: string
 }

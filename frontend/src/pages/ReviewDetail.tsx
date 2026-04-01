@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
-import { getReview, getReviewComments, updateCommentAddressed, createCommentReply } from '../api/client'
+import { getReview, getReviewComments, updateCommentAddressed, createCommentReply, dismissComment, undismissComment } from '../api/client'
 import type { Review, ReviewComment } from '../api/types'
 import { Badge, DecisionBadge, RiskBadge, TriggerSourceBadge } from '../components/Badge'
 
@@ -22,6 +22,9 @@ export function ReviewDetail() {
   const [replyingTo, setReplyingTo] = useState<number | null>(null)
   const [replyText, setReplyText] = useState('')
   const [submittingReply, setSubmittingReply] = useState(false)
+  const [dismissingComment, setDismissingComment] = useState<number | null>(null)
+  const [dismissReason, setDismissReason] = useState('')
+  const [submittingDismiss, setSubmittingDismiss] = useState(false)
 
   useEffect(() => {
     if (!reviewId) return
@@ -46,6 +49,36 @@ export function ReviewDetail() {
     if (!review) return
     const updated = await updateCommentAddressed(review.id, comment.id, !comment.is_addressed)
     setComments(prev => prev.map(c => (c.id === updated.id ? updated : c)))
+  }
+
+  const handleDismissSubmit = async (comment: ReviewComment) => {
+    if (!review) return
+    setSubmittingDismiss(true)
+    try {
+      const updated = await dismissComment(review.id, comment.id, dismissReason.trim() || null)
+      setComments(prev => prev.map(c => (c.id === updated.id ? updated : c)))
+      setReview(prev => prev ? { ...prev, ...updated } : prev)
+      const refreshed = await import('../api/client').then(m => m.getReview(review.id))
+      setReview(refreshed)
+      setDismissingComment(null)
+      setDismissReason('')
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setSubmittingDismiss(false)
+    }
+  }
+
+  const handleUndismiss = async (comment: ReviewComment) => {
+    if (!review) return
+    try {
+      const updated = await undismissComment(review.id, comment.id)
+      setComments(prev => prev.map(c => (c.id === updated.id ? updated : c)))
+      const refreshed = await import('../api/client').then(m => m.getReview(review.id))
+      setReview(refreshed)
+    } catch (e) {
+      console.error(e)
+    }
   }
 
   const handleReplySubmit = async (commentId: number) => {
@@ -86,10 +119,18 @@ export function ReviewDetail() {
       <div className="bg-surface rounded-xl border border-white/[0.07] p-6 space-y-3">
         <div className="flex items-center gap-3 flex-wrap">
           <DecisionBadge decision={review.review_decision} />
-          <RiskBadge level={review.risk_level} />
+          <RiskBadge level={review.display_risk_level ?? review.risk_level} />
           <TriggerSourceBadge source={review.trigger_source} />
-          {review.risk_score != null && (
-            <span className="text-sm text-secondary">Risk Score: <strong className="text-primary">{review.risk_score.toFixed(2)}</strong></span>
+          {review.display_risk_score != null && (
+            <span className="text-sm text-secondary">
+              Risk Score: <strong className="text-primary">{review.display_risk_score.toFixed(2)}</strong>
+              {review.effective_risk_score != null && review.effective_risk_score !== review.risk_score && (
+                <span className="ml-1.5 text-xs text-muted line-through">{review.risk_score?.toFixed(2)}</span>
+              )}
+            </span>
+          )}
+          {review.effective_risk_level != null && review.effective_risk_level !== review.risk_level && (
+            <Badge label="오탐 기각 반영됨" variant="yellow" />
           )}
           {review.retry_count > 0 && (
             <Badge label={`재시도 ${review.retry_count}회`} variant="yellow" />
@@ -209,19 +250,25 @@ export function ReviewDetail() {
           {comments.filter(c => c.parent_id === null).map(comment => {
             const replies = comments.filter(c => c.parent_id === comment.id)
             const isReplying = replyingTo === comment.id
+            const isDismissing = dismissingComment === comment.id
             return (
               <div key={comment.id} className="space-y-1">
                 {/* 원본 코멘트 */}
                 <div
                   className={`bg-surface rounded-xl border p-4 flex items-start gap-3 transition-all duration-150 ${
-                    comment.is_addressed ? 'border-success/20 opacity-50' : 'border-white/[0.07]'
+                    comment.is_dismissed
+                      ? 'border-yellow-500/20 opacity-50'
+                      : comment.is_addressed
+                      ? 'border-success/20 opacity-50'
+                      : 'border-white/[0.07]'
                   }`}
                 >
                   <input
                     type="checkbox"
                     checked={comment.is_addressed}
                     onChange={() => handleAddressed(comment)}
-                    className="mt-0.5 cursor-pointer accent-accent"
+                    disabled={comment.is_dismissed}
+                    className="mt-0.5 cursor-pointer accent-accent disabled:cursor-not-allowed"
                   />
                   <div className="flex-1 space-y-1.5">
                     <div className="flex items-center justify-between gap-2">
@@ -230,28 +277,92 @@ export function ReviewDetail() {
                           label={comment.comment_type}
                           variant={comment.comment_type === 'issue' ? 'red' : 'blue'}
                         />
+                        {comment.severity && (
+                          <Badge
+                            label={comment.severity}
+                            variant={comment.severity === 'high' ? 'red' : comment.severity === 'medium' ? 'yellow' : 'gray'}
+                          />
+                        )}
                         {comment.filename && (
                           <span className="text-xs font-mono text-muted">{comment.filename}</span>
                         )}
                       </div>
-                      <button
-                        onClick={() => {
-                          setReplyingTo(isReplying ? null : comment.id)
-                          setReplyText('')
-                        }}
-                        className="text-xs text-muted hover:text-accent transition-colors"
-                      >
-                        답글
-                      </button>
+                      <div className="flex items-center gap-3">
+                        {comment.comment_type === 'issue' && (
+                          comment.is_dismissed ? (
+                            <button
+                              onClick={() => handleUndismiss(comment)}
+                              className="text-xs text-yellow-400/70 hover:text-yellow-400 transition-colors"
+                            >
+                              기각 취소
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                setDismissingComment(isDismissing ? null : comment.id)
+                                setDismissReason('')
+                              }}
+                              className="text-xs text-muted hover:text-yellow-400 transition-colors"
+                            >
+                              오탐 기각
+                            </button>
+                          )
+                        )}
+                        <button
+                          onClick={() => {
+                            setReplyingTo(isReplying ? null : comment.id)
+                            setReplyText('')
+                          }}
+                          className="text-xs text-muted hover:text-accent transition-colors"
+                        >
+                          답글
+                        </button>
+                      </div>
                     </div>
-                    <p className="text-sm text-secondary">{comment.body}</p>
-                    {comment.is_addressed && comment.addressed_at && (
+                    <p className={`text-sm text-secondary ${comment.is_dismissed ? 'line-through' : ''}`}>{comment.body}</p>
+                    {comment.is_dismissed && (
+                      <p className="text-xs text-yellow-400/70">
+                        오탐으로 기각됨{comment.dismissed_reason ? `: ${comment.dismissed_reason}` : ''}
+                        {comment.dismissed_at && ` · ${new Date(comment.dismissed_at).toLocaleString('ko-KR')}`}
+                      </p>
+                    )}
+                    {!comment.is_dismissed && comment.is_addressed && comment.addressed_at && (
                       <p className="text-xs text-success">
                         처리됨: {new Date(comment.addressed_at).toLocaleString('ko-KR')}
                       </p>
                     )}
                   </div>
                 </div>
+
+                {/* 기각 사유 입력폼 */}
+                {isDismissing && (
+                  <div className="ml-8 bg-surface/60 rounded-xl border border-yellow-500/20 p-3 space-y-2">
+                    <p className="text-xs text-yellow-400/70">오탐으로 기각합니다. 사유를 입력하면 다음 리뷰에서 LLM이 재지적하지 않습니다.</p>
+                    <textarea
+                      value={dismissReason}
+                      onChange={e => setDismissReason(e.target.value)}
+                      placeholder="기각 사유 (선택)"
+                      rows={2}
+                      className="w-full bg-transparent text-sm text-secondary placeholder-muted resize-none outline-none"
+                    />
+                    <div className="flex justify-end gap-2">
+                      <button
+                        onClick={() => { setDismissingComment(null); setDismissReason('') }}
+                        className="text-xs text-muted hover:text-secondary transition-colors"
+                        disabled={submittingDismiss}
+                      >
+                        취소
+                      </button>
+                      <button
+                        onClick={() => handleDismissSubmit(comment)}
+                        disabled={submittingDismiss}
+                        className="px-3 py-1 text-xs font-semibold bg-yellow-500/10 text-yellow-400 border border-yellow-500/30 rounded-lg hover:bg-yellow-500/20 transition-colors disabled:opacity-50"
+                      >
+                        {submittingDismiss ? '처리 중...' : '기각 확인'}
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* 답글 목록 */}
                 {replies.length > 0 && (
