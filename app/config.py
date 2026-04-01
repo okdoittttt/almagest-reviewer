@@ -51,6 +51,8 @@ class Settings(BaseSettings):
     github_client_secret: str = ""
     # 접근 허용할 GitHub 로그인명, 콤마 구분 (예: "okdoittttt,teammate")
     allowed_github_users: str = ""
+    # 접근 허용할 GitHub Organization 이름 (예: "my-org"). 설정 시 org 멤버 전원 허용
+    allowed_github_org: str = ""
     # 앱 베이스 URL (OAuth redirect_uri 생성에 사용)
     # 로컬: http://localhost:8000 / 배포: https://reviewer.okdoitttt.com
     app_base_url: str = "http://localhost:8000"

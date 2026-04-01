@@ -14,6 +14,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 _GITHUB_AUTHORIZE_URL = "https://github.com/login/oauth/authorize"
 _GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token"
 _GITHUB_USER_URL = "https://api.github.com/user"
+_GITHUB_USER_ORGS_URL = "https://api.github.com/user/orgs"
 
 _COOKIE_NAME = "almagest_token"
 _COOKIE_MAX_AGE = settings.jwt_expire_hours * 3600
@@ -29,7 +30,7 @@ async def login() -> RedirectResponse:
         )
     params = urlencode({
         "client_id": settings.github_client_id,
-        "scope": "read:user",
+        "scope": "read:user read:org",
         "redirect_uri": f"{settings.app_base_url}/api/auth/callback",
     })
     return RedirectResponse(f"{_GITHUB_AUTHORIZE_URL}?{params}")
@@ -65,13 +66,38 @@ async def callback(code: str) -> RedirectResponse:
         user_data = user_res.json()
         github_login = user_data.get("login", "")
 
-    # 3. 허용 목록 확인
-    allowed = [u.strip() for u in settings.allowed_github_users.split(",") if u.strip()]
-    if allowed and github_login not in allowed:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"'{github_login}' 계정은 접근 권한이 없습니다.",
-        )
+        # 3. (org 체크가 필요한 경우만) org 멤버십 조회
+        allowed_org = settings.allowed_github_org.strip()
+        user_org_logins: set[str] = set()
+        if allowed_org:
+            orgs_res = await client.get(
+                _GITHUB_USER_ORGS_URL,
+                headers={"Authorization": f"Bearer {access_token}", "Accept": "application/json"},
+                params={"per_page": 100},
+            )
+            if orgs_res.status_code != 200:
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail="GitHub Organization 정보를 가져오지 못했습니다.",
+                )
+            orgs_data = orgs_res.json()
+            if isinstance(orgs_data, list):
+                user_org_logins = {org.get("login", "") for org in orgs_data}
+
+    # 4. 접근 권한 판별 (OR 로직)
+    allowed_users = [u.strip() for u in settings.allowed_github_users.split(",") if u.strip()]
+    org_configured = bool(allowed_org)
+    users_configured = bool(allowed_users)
+
+    if org_configured or users_configured:
+        passed_org = org_configured and (allowed_org in user_org_logins)
+        passed_users = users_configured and (github_login in allowed_users)
+        if not (passed_org or passed_users):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"'{github_login}' 계정은 접근 권한이 없습니다.",
+            )
+    # 둘 다 미설정이면 누구나 허용 (기존 동작 유지)
 
     # 4. JWT를 httpOnly 쿠키에 저장 후 대시보드로 리다이렉트
     #    URL에 토큰을 노출하지 않으므로 브라우저 히스토리/로그에 남지 않음
