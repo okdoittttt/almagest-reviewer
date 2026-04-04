@@ -495,6 +495,7 @@ async def dismiss_comment(
     review_id: int,
     comment_id: int,
     reason: str | None,
+    dismissed_by: str | None = None,
 ) -> "ReviewComment":
     """ReviewComment를 false positive로 기각하고 effective risk를 재계산합니다.
 
@@ -503,6 +504,7 @@ async def dismiss_comment(
         review_id: Review 내부 PK.
         comment_id: ReviewComment 내부 PK.
         reason: 기각 사유.
+        dismissed_by: 기각한 사용자의 GitHub 로그인명.
 
     Returns:
         업데이트된 ReviewComment 인스턴스.
@@ -516,6 +518,7 @@ async def dismiss_comment(
 
     comment.is_dismissed = True
     comment.dismissed_reason = reason
+    comment.dismissed_by = dismissed_by
     comment.dismissed_at = datetime.now(timezone.utc)
     await session.flush()
 

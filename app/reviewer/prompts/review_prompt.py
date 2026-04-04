@@ -100,6 +100,24 @@ JSON만 응답해주세요."""
                 + "해결된 이슈의 ID를 resolved_comment_ids에 포함해주세요.\n"
             )
 
+    false_positive_section = ""
+    if previous_review:
+        known_fps = [
+            fp for fp in previous_review.get("known_false_positives", [])
+            if fp.get("file") == file.filename
+        ]
+        if known_fps:
+            fp_lines = []
+            for fp in known_fps:
+                reason_text = f" (사유: {fp['reason']})" if fp.get("reason") else ""
+                fp_lines.append(f"- {fp['body']}{reason_text}")
+            false_positive_section = (
+                "\n## 재지적 금지 이슈 (이전에 False Positive로 확인됨)\n"
+                "아래 이슈들은 사람이 검토 후 오탐으로 확인했습니다. 동일한 내용을 다시 지적하지 마세요.\n"
+                + "\n".join(fp_lines)
+                + "\n"
+            )
+
     context_section = ""
     if context_files:
         parts = []
@@ -115,7 +133,7 @@ JSON만 응답해주세요."""
 **PR 의도:** {pr_intent.get('summary', 'N/A')} ({pr_intent.get('type', 'unknown')})
 **위험도:** {risk_assessment.get('level', 'UNKNOWN')} (점수: {risk_assessment.get('score', 0)}/10)
 **주요 검토 영역:** {', '.join(risk_assessment.get('review_focus_areas', [])[:3])}
-{pr_files_section}{prev_issues_section}{context_section}
+{pr_files_section}{prev_issues_section}{false_positive_section}{context_section}
 ## 파일 정보
 **경로:** `{file.filename}`
 **상태:** {file.status}
