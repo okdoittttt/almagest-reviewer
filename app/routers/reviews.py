@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
+from app.dependencies.auth import get_current_user
 from app.database.models.review import Review
 from app.database.models.review_comment import ReviewComment
 from app.schemas.review import ReviewCommentOut, ReviewDetail
@@ -106,6 +107,7 @@ async def dismiss_review_comment(
     comment_id: int,
     body: DismissCreate,
     session: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
 ) -> ReviewCommentOut:
     """리뷰 코멘트를 false positive로 기각한다.
 
@@ -124,7 +126,7 @@ async def dismiss_review_comment(
         HTTPException: comment_id가 없거나 해당 review에 속하지 않으면 404.
     """
     try:
-        comment = await dismiss_comment(session, review_id, comment_id, body.reason)
+        comment = await dismiss_comment(session, review_id, comment_id, body.reason, current_user["sub"])
     except ValueError:
         raise HTTPException(status_code=404, detail="Comment not found")
     return ReviewCommentOut.model_validate(comment)
