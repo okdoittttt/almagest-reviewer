@@ -444,35 +444,6 @@ docker compose up -d --build`}</CodeBlock>
         ))}
       </div>
 
-      {/* ── Roadmap ──────────────────────────────────── */}
-      <SectionHeading id="roadmap">Roadmap</SectionHeading>
-      <P>현재 기본 초석을 다진 단계이며, 실무 수준의 서비스로 고도화를 목표로 합니다.</P>
-
-      <div className="space-y-2 mb-8">
-        {[
-          { done: true, label: 'Multi-repo Support', desc: 'PostgreSQL 기반 멀티테넌시 구조' },
-          { done: true, label: 'Web Dashboard', desc: 'GitHub OAuth 로그인 기반 관리 UI' },
-          { done: false, label: 'Skills', desc: '레포지토리별 리뷰 기준 커스터마이징' },
-          { done: false, label: 'PR Triage', desc: '여러 PR 동시 접수 시 우선순위 자동 판단' },
-          { done: false, label: 'Follow-up', desc: '리뷰 코멘트 반영 여부 추적 및 재검토' },
-          { done: false, label: 'Human-in-the-loop Gate', desc: '고위험 PR은 사람 승인 후 코멘트 게시' },
-          { done: false, label: 'Incremental Review', desc: '변경 라인(diff) 중심의 최적화 리뷰' },
-          { done: false, label: 'Multi-model Ensemble', desc: '복수 LLM 의견 종합으로 정확도 향상' },
-        ].map(item => (
-          <div key={item.label} className="flex items-start gap-3 py-2.5 border-b border-white/[0.05]">
-            <span className={`mt-0.5 text-sm shrink-0 ${item.done ? 'text-success' : 'text-muted'}`}>
-              {item.done ? '✓' : '○'}
-            </span>
-            <div>
-              <span className={`text-sm font-medium ${item.done ? 'text-primary' : 'text-secondary'}`}>
-                {item.label}
-              </span>
-              <span className="text-sm text-muted ml-2">{item.desc}</span>
-            </div>
-          </div>
-        ))}
-      </div>
-
     </article>
   )
 }

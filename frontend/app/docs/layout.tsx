@@ -19,7 +19,6 @@ const sections = [
   { id: 'multi-repo', label: 'Multi-repo Integration' },
   { id: 'self-hosted', label: 'Self-hosted Deployment' },
   { id: 'troubleshooting', label: 'Troubleshooting' },
-  { id: 'roadmap', label: 'Roadmap' },
 ]
 
 function DocsSidebar() {
