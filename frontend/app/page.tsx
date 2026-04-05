@@ -140,24 +140,24 @@ export default function LandingPage() {
           className="text-5xl md:text-6xl font-bold text-white leading-tight max-w-3xl"
           style={{ fontFamily: 'var(--font-brand)', letterSpacing: '-0.02em' }}
         >
-          AI가 코드 리뷰를
+          이제 당신의 코드를
           <br />
-          <span style={{ color: '#2997ff' }}>에이전트처럼</span> 생각합니다
+          <span style={{ color: '#2997ff' }}>에이전트에게</span> 맡기세요
         </h1>
 
         <p className="mt-6 text-lg text-secondary max-w-xl leading-relaxed">
-          단순한 LLM 호출이 아닙니다. LangGraph 기반 상태 전이 그래프로
+          단순한 LLM 호출이 아닙니다. LangGraph 기반 상태 전이 그래프로 <br />
           코드 분석부터 리뷰 생성까지 전 과정을 명시적으로 모델링합니다.
         </p>
 
         <div className="flex items-center gap-4 mt-10">
-          <Link
+          {/* <Link
             href="/login"
             className="px-6 py-3 rounded-xl text-sm font-semibold text-white transition-all duration-150 hover:opacity-90"
             style={{ background: '#2997ff' }}
           >
             무료로 시작하기
-          </Link>
+          </Link> */}
           <a
             href="https://github.com/okdoittttt/almagest-reviewer"
             target="_blank"
@@ -168,7 +168,7 @@ export default function LandingPage() {
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z" />
             </svg>
-            GitHub에서 보기
+            GitHub
           </a>
         </div>
       </section>
