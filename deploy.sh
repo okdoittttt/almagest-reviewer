@@ -91,7 +91,7 @@ deploy() {
     header "배포 시작"
 
     info "1/4  기존 컨테이너 종료..."
-    docker compose down
+    docker compose down --remove-orphans
 
     info "2/4  이미지 빌드..."
     docker compose build --no-cache
