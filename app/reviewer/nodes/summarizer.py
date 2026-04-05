@@ -77,6 +77,7 @@ async def summarize_review(state: ReviewState) -> dict:
             "final_review": final_comment,
             "review_decision": decision,
             "needs_retry": needs_retry,
+            "retry_count": state.get("retry_count", 0) + 1,
             "messages": [{
                 "role": "summarizer",
                 "content": response_text,
