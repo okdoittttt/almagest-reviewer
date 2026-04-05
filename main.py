@@ -1,9 +1,7 @@
 import json
-from pathlib import Path
 
 from fastapi import Depends, FastAPI, Request
-from fastapi.responses import FileResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,11 +22,6 @@ app.include_router(repositories.router, prefix="/api", dependencies=_auth_dep)
 app.include_router(pull_requests.router, prefix="/api", dependencies=_auth_dep)
 app.include_router(reviews.router, prefix="/api", dependencies=_auth_dep)
 app.include_router(skills.router, prefix="/api", dependencies=_auth_dep)
-
-# 프론트엔드 정적 파일 서빙
-_FRONTEND_DIST = Path(__file__).parent / "frontend" / "dist"
-if _FRONTEND_DIST.exists():
-    app.mount("/assets", StaticFiles(directory=_FRONTEND_DIST / "assets"), name="assets")
 
 
 @app.get("/health")
@@ -67,18 +60,3 @@ async def github_webhook(request: Request, session: AsyncSession = Depends(get_d
     return JSONResponse({"status": "success"})
 
 
-# SPA catch-all: /api/* 와 /webhook, /health 를 제외한 모든 경로를 index.html 로 서빙
-@app.get("/{full_path:path}")
-async def serve_spa(full_path: str):
-    """SPA catch-all 라우터. /api, /webhook, /health를 제외한 모든 경로에 index.html을 반환한다.
-
-    Args:
-        full_path: 요청 경로.
-
-    Returns:
-        프론트엔드 index.html 또는 서비스 상태 JSON (빌드 파일이 없는 경우).
-    """
-    index = _FRONTEND_DIST / "index.html"
-    if index.exists():
-        return FileResponse(index)
-    return JSONResponse({"status": "ok", "service": "almagest-reviewer"})

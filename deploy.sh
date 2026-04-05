@@ -110,7 +110,7 @@ deploy() {
     run_migrate
 
     info "앱 및 프론트엔드 컨테이너 기동..."
-    docker compose up -d app frontend
+    docker compose up -d app web
 
     echo ""
     success "배포 완료."
@@ -167,7 +167,7 @@ usage() {
     echo "  ./deploy.sh deploy          # 전체 배포"
     echo "  ./deploy.sh status          # 마이그레이션 버전 확인"
     echo "  ./deploy.sh migrate         # 마이그레이션만 실행"
-    echo "  ./deploy.sh logs frontend   # 프론트엔드 로그"
+    echo "  ./deploy.sh logs web        # 프론트엔드 로그"
 }
 
 # ── 진입점 ────────────────────────────────────────────────────────────────────
