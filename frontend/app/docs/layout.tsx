@@ -37,7 +37,20 @@ function DocsSidebar() {
       { rootMargin: '-10% 0px -80% 0px' }
     )
     headings.forEach(el => observer.observe(el))
-    return () => observer.disconnect()
+
+    const handleScroll = () => {
+      const nearBottom =
+        window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 80
+      if (nearBottom) {
+        setActiveId('troubleshooting')
+      }
+    }
+    window.addEventListener('scroll', handleScroll, { passive: true })
+
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('scroll', handleScroll)
+    }
   }, [])
 
   return (
