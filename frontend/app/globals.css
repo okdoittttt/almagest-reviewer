@@ -1,0 +1,102 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: 'Paperlogy';
+  src: url('/fonts/Paperlogy-1/Paperlogy-1Thin.ttf') format('truetype');
+  font-weight: 100;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Paperlogy';
+  src: url('/fonts/Paperlogy-1/Paperlogy-2ExtraLight.ttf') format('truetype');
+  font-weight: 200;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Paperlogy';
+  src: url('/fonts/Paperlogy-1/Paperlogy-3Light.ttf') format('truetype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Paperlogy';
+  src: url('/fonts/Paperlogy-1/Paperlogy-4Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Paperlogy';
+  src: url('/fonts/Paperlogy-1/Paperlogy-5Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Paperlogy';
+  src: url('/fonts/Paperlogy-1/Paperlogy-6SemiBold.ttf') format('truetype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Paperlogy';
+  src: url('/fonts/Paperlogy-1/Paperlogy-7Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Paperlogy';
+  src: url('/fonts/Paperlogy-1/Paperlogy-8ExtraBold.ttf') format('truetype');
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Paperlogy';
+  src: url('/fonts/Paperlogy-1/Paperlogy-9Black.ttf') format('truetype');
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@theme {
+  --color-bg: #09090b;
+  --color-surface: #18181b;
+  --color-surface2: #27272a;
+  --color-accent: #2997ff;
+  --color-success: #30d158;
+  --color-warning: #ffd60a;
+  --color-danger: #ff453a;
+  --color-primary: #fafafa;
+  --color-secondary: #a1a1aa;
+  --color-muted: #52525b;
+
+  --font-brand: 'Paperlogy', system-ui, -apple-system, sans-serif;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, 'SF Pro Display', sans-serif;
+  background-color: #09090b;
+  color: #fafafa;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* markdown prose — dark */
+.prose h1, .prose h2, .prose h3 { font-weight: 600; margin: 1rem 0 0.5rem; color: #fafafa; }
+.prose p { margin: 0.5rem 0; color: #a1a1aa; }
+.prose ul { list-style: disc; padding-left: 1.5rem; margin: 0.5rem 0; }
+.prose ol { list-style: decimal; padding-left: 1.5rem; margin: 0.5rem 0; }
+.prose li { color: #a1a1aa; }
+.prose code { background: #27272a; color: #2997ff; padding: 2px 6px; border-radius: 4px; font-size: 0.875em; }
+.prose pre { background: #1c1c1e; color: #fafafa; padding: 1rem; border-radius: 10px; overflow-x: auto; border: 1px solid rgba(255,255,255,0.07); }
+.prose pre code { background: none; padding: 0; color: inherit; }
+.prose blockquote { border-left: 3px solid rgba(255,255,255,0.1); padding-left: 1rem; color: #52525b; margin: 0.5rem 0; }
+.prose strong { color: #fafafa; }
+.prose a { color: #2997ff; }
