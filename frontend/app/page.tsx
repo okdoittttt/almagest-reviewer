@@ -142,22 +142,22 @@ export default function LandingPage() {
         >
           이제 당신의 코드를
           <br />
-          <span style={{ color: '#2997ff' }}>에이전트에게</span> 맡기세요.
+          <span style={{ color: '#2997ff' }}>에이전트에게</span> 맡기세요
         </h1>
 
         <p className="mt-6 text-lg text-secondary max-w-xl leading-relaxed">
-          단순한 LLM 호출이 아닙니다. LangGraph 기반 상태 전이 그래프로
+          단순한 LLM 호출이 아닙니다. LangGraph 기반 상태 전이 그래프로 <br />
           코드 분석부터 리뷰 생성까지 전 과정을 명시적으로 모델링합니다.
         </p>
 
         <div className="flex items-center gap-4 mt-10">
-          <Link
+          {/* <Link
             href="/login"
             className="px-6 py-3 rounded-xl text-sm font-semibold text-white transition-all duration-150 hover:opacity-90"
             style={{ background: '#2997ff' }}
           >
             무료로 시작하기
-          </Link>
+          </Link> */}
           <a
             href="https://github.com/okdoittttt/almagest-reviewer"
             target="_blank"
