@@ -140,9 +140,9 @@ export default function LandingPage() {
           className="text-5xl md:text-6xl font-bold text-white leading-tight max-w-3xl"
           style={{ fontFamily: 'var(--font-brand)', letterSpacing: '-0.02em' }}
         >
-          AI가 코드 리뷰를
+          이제 당신의 코드를
           <br />
-          <span style={{ color: '#2997ff' }}>에이전트처럼</span> 생각합니다
+          <span style={{ color: '#2997ff' }}>에이전트에게</span> 맡기세요.
         </h1>
 
         <p className="mt-6 text-lg text-secondary max-w-xl leading-relaxed">
