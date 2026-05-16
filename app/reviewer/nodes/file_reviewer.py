@@ -71,6 +71,29 @@ async def _fetch_context_files(
     return context
 
 
+def _coerce_resolved_ids(raw: object) -> list[int]:
+    """LLM 응답의 resolved_comment_ids를 정수 목록으로 정제합니다.
+
+    LLM이 ID를 문자열("425")이나 실수(425.0)로 응답할 수 있으므로 받자마자
+    정수로 강제 변환하고, 변환 불가능한 값은 로깅 후 버립니다.
+
+    Args:
+        raw: LLM 응답에서 추출한 resolved_comment_ids 원본 값.
+
+    Returns:
+        정수로 변환된 코멘트 ID 목록.
+    """
+    if not isinstance(raw, list):
+        return []
+    clean: list[int] = []
+    for value in raw:
+        try:
+            clean.append(int(value))
+        except (TypeError, ValueError):
+            logger.warning(f"resolved_comment_ids에 정수 아닌 값 무시: {value!r}")
+    return clean
+
+
 async def _run_skill_agent(
     file: FileChange,
     skill: dict,
@@ -105,7 +128,7 @@ async def _run_skill_agent(
         result.setdefault("skill", skill.get("name", "unknown"))
         result.setdefault("verdict", "pass")
         result.setdefault("issues", [])
-        result.setdefault("resolved_comment_ids", [])
+        result["resolved_comment_ids"] = _coerce_resolved_ids(result.get("resolved_comment_ids"))
         return result
     except Exception as e:
         logger.warning(f"  ⚠️ 스킬 에이전트 실패 ({skill.get('name')}): {e}")
@@ -235,7 +258,9 @@ async def review_single_file(
                 file_review.setdefault("status", "UNKNOWN")
                 file_review.setdefault("issues", [])
                 file_review.setdefault("suggestions", [])
-                file_review.setdefault("resolved_comment_ids", [])
+                file_review["resolved_comment_ids"] = _coerce_resolved_ids(
+                    file_review.get("resolved_comment_ids")
+                )
                 file_review.setdefault("summary", "리뷰 완료")
             except json.JSONDecodeError:
                 file_review = {
